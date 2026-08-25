@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from auditable_financial_agents.cli import load_case
+from auditable_financial_agents.core import evaluate_case
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def main() -> int:
+    out_dir = ROOT / "results"
+    out_dir.mkdir(exist_ok=True)
+    rows = []
+    for path in sorted((ROOT / "examples").glob("*.json")):
+        result = evaluate_case(load_case(path))
+        rows.append(
+            {
+                "example": path.name,
+                "case_id": result.case_id,
+                "opinion": result.opinion,
+                "human_review_required": result.human_review_required,
+                "evidence_sufficiency": round(result.evidence_sufficiency, 6),
+                "pervasiveness": round(result.pervasiveness, 6),
+                "trace_completeness": round(result.trace_assessment.trace_completeness, 6),
+            }
+        )
+    json_path = out_dir / "demo_results.json"
+    json_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+
+    lines = [
+        "# Demo results",
+        "",
+        "These are deterministic **synthetic/public-safe examples**. They are not the HCOMP empirical results.",
+        "",
+        "| Example | Opinion | Human review | Evidence sufficiency | Pervasiveness | Trace completeness |",
+        "|---|---|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| `{row['example']}` | {row['opinion']} | {str(row['human_review_required']).lower()} | "
+            f"{row['evidence_sufficiency']:.3f} | {row['pervasiveness']:.3f} | {row['trace_completeness']:.3f} |"
+        )
+    md_path = out_dir / "DEMO_RESULTS.md"
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    manifest = {
+        "kind": "synthetic_demo_snapshot",
+        "artifacts": {
+            json_path.relative_to(ROOT).as_posix(): sha256(json_path),
+            md_path.relative_to(ROOT).as_posix(): sha256(md_path),
+        },
+        "examples": {
+            path.relative_to(ROOT).as_posix(): sha256(path)
+            for path in sorted((ROOT / "examples").glob("*.json"))
+        },
+    }
+    manifest_path = out_dir / "DEMO_MANIFEST.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"wrote {json_path.relative_to(ROOT)}")
+    print(f"wrote {md_path.relative_to(ROOT)}")
+    print(f"wrote {manifest_path.relative_to(ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

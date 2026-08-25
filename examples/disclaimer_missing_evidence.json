@@ -1,0 +1,26 @@
+{
+  "case_id": "disclaimer_missing_evidence",
+  "metadata": {"source": "synthetic public-safe example"},
+  "claims": [
+    {
+      "claim_id": "segment_growth",
+      "weight": 1.0,
+      "generated_value": 0.18,
+      "source_value": null,
+      "materiality_threshold": null,
+      "provenance_valid": false,
+      "period_aligned": false,
+      "formula_check": "unknown",
+      "note": "source period unavailable"
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "fetch_segment_note",
+      "tool": "document_search",
+      "status": "failed",
+      "evidence_refs": [],
+      "exception": "source not found"
+    }
+  ]
+}

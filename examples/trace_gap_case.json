@@ -1,0 +1,23 @@
+{
+  "case_id": "trace_gap_case",
+  "metadata": {"source": "synthetic public-safe example", "extension": "action-trace audit"},
+  "claims": [
+    {
+      "claim_id": "cash_ratio",
+      "weight": 1.0,
+      "generated_value": 0.42,
+      "source_value": 0.42,
+      "materiality_threshold": 0.05,
+      "formula_check": "pass"
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "lookup_cash",
+      "tool": "financial_data_tool",
+      "status": "executed",
+      "evidence_refs": [],
+      "result_hash": null
+    }
+  ]
+}

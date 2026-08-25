@@ -1,0 +1,35 @@
+{
+  "case_id": "clean_revenue_table",
+  "metadata": {"source": "synthetic public-safe example"},
+  "claims": [
+    {
+      "claim_id": "revenue_2025",
+      "weight": 1.0,
+      "generated_value": 125.0,
+      "source_value": 125.0,
+      "materiality_threshold": 5.0,
+      "provenance_valid": true,
+      "entity_aligned": true,
+      "period_aligned": true,
+      "metric_aligned": true,
+      "formula_check": "pass"
+    },
+    {
+      "claim_id": "margin_formula",
+      "weight": 0.8,
+      "generated_value": 0.20,
+      "source_value": 0.20,
+      "materiality_threshold": 0.03,
+      "formula_check": "pass"
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "fetch_source",
+      "tool": "synthetic_source_lookup",
+      "status": "executed",
+      "evidence_refs": ["fact:revenue_2025"],
+      "result_hash": "demo-sha256-001"
+    }
+  ]
+}

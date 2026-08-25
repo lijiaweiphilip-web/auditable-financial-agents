@@ -1,0 +1,31 @@
+{
+  "case_id": "adverse_multiple_errors",
+  "metadata": {"source": "synthetic public-safe example"},
+  "claims": [
+    {
+      "claim_id": "revenue_2025",
+      "weight": 1.0,
+      "generated_value": 170.0,
+      "source_value": 125.0,
+      "materiality_threshold": 5.0,
+      "formula_check": "pass"
+    },
+    {
+      "claim_id": "debt_ratio",
+      "weight": 1.0,
+      "generated_value": 0.70,
+      "source_value": 0.40,
+      "materiality_threshold": 0.10,
+      "formula_check": "fail"
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "compute_ratios",
+      "tool": "calculator",
+      "status": "executed",
+      "evidence_refs": ["fact:balance_sheet"],
+      "result_hash": "demo-sha256-003"
+    }
+  ]
+}

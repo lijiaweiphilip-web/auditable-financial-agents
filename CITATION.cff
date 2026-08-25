@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this research prototype, please cite the repository and the preferred HCOMP 2026 paper below."
+title: "Auditable Financial Agents: Public-Safe Research Prototype"
+authors:
+  - family-names: "Li"
+    given-names: "Jiawei"
+license: MIT
+repository-code: "https://github.com/lijiaweiphilip-web/auditable-financial-agents"
+preferred-citation:
+  type: conference-paper
+  authors:
+    - family-names: "Li"
+      given-names: "Jiawei"
+  title: "From Answers to Audit Opinions: Cost-Aware Expert Verification of Financial Artifacts from Tool-Using LLM Agents"
+  conference:
+    name: "2026 ACM Conference on Human-AI Complementarity and Alignment (HCOMP 2026)"
+  year: 2026
+  doi: "10.1145/3834580.3838756"

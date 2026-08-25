@@ -1,0 +1,47 @@
+[
+  {
+    "example": "adverse_multiple_errors.json",
+    "case_id": "adverse_multiple_errors",
+    "opinion": "Adverse",
+    "human_review_required": true,
+    "evidence_sufficiency": 1.0,
+    "pervasiveness": 1.0,
+    "trace_completeness": 1.0
+  },
+  {
+    "example": "clean_case.json",
+    "case_id": "clean_revenue_table",
+    "opinion": "Clean",
+    "human_review_required": false,
+    "evidence_sufficiency": 1.0,
+    "pervasiveness": 0.0,
+    "trace_completeness": 1.0
+  },
+  {
+    "example": "disclaimer_missing_evidence.json",
+    "case_id": "disclaimer_missing_evidence",
+    "opinion": "Disclaimer",
+    "human_review_required": true,
+    "evidence_sufficiency": 0.0,
+    "pervasiveness": 0.0,
+    "trace_completeness": 1.0
+  },
+  {
+    "example": "qualified_formula_error.json",
+    "case_id": "qualified_formula_error",
+    "opinion": "Qualified",
+    "human_review_required": true,
+    "evidence_sufficiency": 1.0,
+    "pervasiveness": 0.285714,
+    "trace_completeness": 1.0
+  },
+  {
+    "example": "trace_gap_case.json",
+    "case_id": "trace_gap_case",
+    "opinion": "Clean",
+    "human_review_required": true,
+    "evidence_sufficiency": 1.0,
+    "pervasiveness": 0.0,
+    "trace_completeness": 0.0
+  }
+]
