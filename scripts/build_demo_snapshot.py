@@ -22,6 +22,12 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def write_utf8_lf(path: Path, text: str) -> None:
+    """Write deterministic UTF-8 text regardless of the host platform."""
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
 def main() -> int:
     out_dir = ROOT / "results"
     out_dir.mkdir(exist_ok=True)
@@ -40,7 +46,7 @@ def main() -> int:
             }
         )
     json_path = out_dir / "demo_results.json"
-    json_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    write_utf8_lf(json_path, json.dumps(rows, indent=2) + "\n")
 
     lines = [
         "# Demo results",
@@ -56,7 +62,7 @@ def main() -> int:
             f"{row['evidence_sufficiency']:.3f} | {row['pervasiveness']:.3f} | {row['trace_completeness']:.3f} |"
         )
     md_path = out_dir / "DEMO_RESULTS.md"
-    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_utf8_lf(md_path, "\n".join(lines) + "\n")
 
     manifest = {
         "kind": "synthetic_demo_snapshot",
@@ -70,7 +76,7 @@ def main() -> int:
         },
     }
     manifest_path = out_dir / "DEMO_MANIFEST.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_utf8_lf(manifest_path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(f"wrote {json_path.relative_to(ROOT)}")
     print(f"wrote {md_path.relative_to(ROOT)}")
     print(f"wrote {manifest_path.relative_to(ROOT)}")

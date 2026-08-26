@@ -8,6 +8,7 @@ from pathlib import Path
 from auditable_financial_agents import ActionRecord, ArtifactCase, AuditConfig, Claim, evaluate_case
 from auditable_financial_agents.cli import load_case, main
 from auditable_financial_agents.trace import assess_trace
+from scripts.build_demo_snapshot import main as build_demo_snapshot
 
 
 class HardeningTests(unittest.TestCase):
@@ -70,6 +71,12 @@ class HardeningTests(unittest.TestCase):
     def test_cli_demo_subcommand_returns_zero(self) -> None:
         root = Path(__file__).resolve().parents[1]
         self.assertEqual(main(["demo", "--examples", str(root / "examples")]), 0)
+
+    def test_cli_demo_artifacts_use_platform_independent_lf(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        self.assertEqual(build_demo_snapshot(), 0)
+        for name in ("demo_results.json", "DEMO_RESULTS.md", "DEMO_MANIFEST.json"):
+            self.assertNotIn(b"\r\n", (root / "results" / name).read_bytes())
 
     def test_invalid_json_is_not_silently_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
