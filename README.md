@@ -64,6 +64,8 @@ The action-trace code is a **prospective research extension**, not an HCOMP
 2026 accepted-paper result. See [`docs/PAPER_MAPPING.md`](docs/PAPER_MAPPING.md)
 and [`docs/TRACE_EXTENSION.md`](docs/TRACE_EXTENSION.md).
 
+For a compact paper-to-code view, see [`docs/RESEARCH_MAP.md`](docs/RESEARCH_MAP.md).
+
 ## Synthetic result boundary
 
 [`results/DEMO_RESULTS.md`](results/DEMO_RESULTS.md) and
