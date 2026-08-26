@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -11,8 +10,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from auditable_financial_agents.cli import load_case
-from auditable_financial_agents.core import evaluate_case
+from auditable_financial_agents.cli import load_case  # noqa: E402
+from auditable_financial_agents.core import evaluate_case  # noqa: E402
 
 
 def sha256(path: Path) -> str:
