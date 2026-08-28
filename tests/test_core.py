@@ -65,13 +65,100 @@ class AuditCoreTests(unittest.TestCase):
         result = evaluate_case(case)
         self.assertEqual(result.opinion, "Qualified")
 
+    def test_increasing_claim_severity_cannot_make_opinion_safer(self) -> None:
+        claims = [Claim("ok", weight=3.0), Claim("risk", weight=1.0, qualitative_severity=0.8)]
+        lower = evaluate_case(ArtifactCase("severity-low", claims))
+        higher = evaluate_case(
+            ArtifactCase(
+                "severity-high",
+                [Claim("ok", weight=3.0), Claim("risk", weight=1.0, qualitative_severity=1.2)],
+            )
+        )
+        self.assertEqual(lower.opinion, "Clean")
+        self.assertEqual(higher.opinion, "Qualified")
+        self.assertGreaterEqual(higher.max_effective_severity, lower.max_effective_severity)
+
+    def test_invalidating_evidence_cannot_improve_to_clean(self) -> None:
+        valid = evaluate_case(
+            ArtifactCase("valid-material", [Claim("risk", qualitative_severity=1.2)])
+        )
+        invalid = evaluate_case(
+            ArtifactCase("invalid-material", [Claim("risk", qualitative_severity=1.2, provenance_valid=False)])
+        )
+        self.assertNotEqual(valid.opinion, "Clean")
+        self.assertNotEqual(invalid.opinion, "Clean")
+        self.assertLess(invalid.evidence_sufficiency, valid.evidence_sufficiency)
+
+    def test_materiality_threshold_boundary_is_deterministic(self) -> None:
+        boundary = ArtifactCase(
+            "boundary",
+            [Claim("bad", generated_value=2.0, source_value=1.0, materiality_threshold=1.0)],
+        )
+        first = evaluate_case(boundary)
+        second = evaluate_case(boundary)
+        self.assertEqual(first.opinion, second.opinion)
+        self.assertEqual(first.pervasiveness, second.pervasiveness)
+        self.assertEqual(first.critical_matters, second.critical_matters)
+
+    def test_uniform_weight_scaling_preserves_decision_metrics(self) -> None:
+        claims = [
+            Claim("ok", weight=2.0),
+            Claim("bad", weight=1.0, qualitative_severity=1.2),
+        ]
+        original = evaluate_case(ArtifactCase("scale-a", claims))
+        scaled = evaluate_case(
+            ArtifactCase(
+                "scale-b",
+                [
+                    Claim("ok", weight=20.0),
+                    Claim("bad", weight=10.0, qualitative_severity=1.2),
+                ],
+            )
+        )
+        self.assertEqual(scaled.opinion, original.opinion)
+        self.assertEqual(scaled.evidence_sufficiency, original.evidence_sufficiency)
+        self.assertEqual(scaled.pervasiveness, original.pervasiveness)
+        self.assertEqual(scaled.scope_limitation, original.scope_limitation)
+
+    def test_low_weight_formula_failure_cannot_be_clean(self) -> None:
+        result = evaluate_case(
+            ArtifactCase(
+                "formula-material",
+                [Claim("ok", weight=100.0), Claim("bad", weight=0.01, formula_check="fail")],
+            )
+        )
+        self.assertNotEqual(result.opinion, "Clean")
+        self.assertGreaterEqual(result.max_effective_severity, 1.0)
+
+    def test_max_effective_severity_is_claim_level_not_weighted(self) -> None:
+        result = evaluate_case(
+            ArtifactCase(
+                "severity-metric",
+                [Claim("bad", weight=0.01, qualitative_severity=2.0)],
+            )
+        )
+        self.assertEqual(result.max_effective_severity, 2.0)
+        self.assertAlmostEqual(result.max_weighted_severity, 0.02)
+
     def test_custom_thresholds(self) -> None:
         case = ArtifactCase(
             "custom",
-            [Claim("bad", generated_value=11.1, source_value=10, materiality_threshold=1)],
+            [
+                Claim("ok", weight=2.0),
+                Claim("bad", weight=1.0, generated_value=11.1, source_value=10, materiality_threshold=1),
+            ],
         )
-        result = evaluate_case(case, AuditConfig(pervasiveness_threshold=1.1))
+        result = evaluate_case(case, AuditConfig(pervasiveness_threshold=0.4))
         self.assertEqual(result.opinion, "Qualified")
+
+    def test_thresholds_outside_unit_interval_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            evaluate_case(ArtifactCase("bad-evidence-threshold", [Claim("x")]), AuditConfig(evidence_threshold=1.1))
+        with self.assertRaises(ValueError):
+            evaluate_case(
+                ArtifactCase("bad-pervasive-threshold", [Claim("x")]),
+                AuditConfig(pervasiveness_threshold=-0.1),
+            )
 
     def test_false_clean_rate(self) -> None:
         numerator, denominator, rate = false_clean_rate(

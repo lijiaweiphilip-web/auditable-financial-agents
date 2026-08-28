@@ -42,7 +42,10 @@ def main() -> int:
                 "human_review_required": result.human_review_required,
                 "evidence_sufficiency": round(result.evidence_sufficiency, 6),
                 "pervasiveness": round(result.pervasiveness, 6),
+                "max_effective_severity": round(result.max_effective_severity, 6),
                 "trace_completeness": round(result.trace_assessment.trace_completeness, 6),
+                "task_completeness": result.trace_assessment.task_completeness,
+                "completeness_basis": result.trace_assessment.completeness_basis,
             }
         )
     json_path = out_dir / "demo_results.json"
@@ -53,13 +56,16 @@ def main() -> int:
         "",
         "These are deterministic **synthetic/public-safe examples**. They are not the HCOMP empirical results.",
         "",
-        "| Example | Opinion | Human review | Evidence sufficiency | Pervasiveness | Trace completeness |",
-        "|---|---|---:|---:|---:|---:|",
+        "| Example | Opinion | Human review | Evidence sufficiency | Pervasiveness | "
+        "Max severity | Action-doc coverage | Task completeness |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         lines.append(
             f"| `{row['example']}` | {row['opinion']} | {str(row['human_review_required']).lower()} | "
-            f"{row['evidence_sufficiency']:.3f} | {row['pervasiveness']:.3f} | {row['trace_completeness']:.3f} |"
+            f"{row['evidence_sufficiency']:.3f} | {row['pervasiveness']:.3f} | "
+            f"{row['max_effective_severity']:.3f} | {row['trace_completeness']:.3f} | "
+            f"{row['task_completeness'] if row['task_completeness'] is not None else 'not assessed'} |"
         )
     md_path = out_dir / "DEMO_RESULTS.md"
     write_utf8_lf(md_path, "\n".join(lines) + "\n")

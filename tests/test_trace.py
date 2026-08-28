@@ -7,9 +7,23 @@ from auditable_financial_agents.trace import assess_trace
 
 
 class TraceTests(unittest.TestCase):
-    def test_empty_trace_is_complete(self) -> None:
+    def test_empty_trace_has_no_task_completeness_claim(self) -> None:
         result = assess_trace([])
         self.assertEqual(result.trace_completeness, 1.0)
+        self.assertIsNone(result.task_completeness)
+        self.assertEqual(result.completeness_basis, "no_expected_actions")
+
+    def test_empty_trace_with_expected_actions_requires_review(self) -> None:
+        case = ArtifactCase(
+            "trace-expected",
+            [Claim("x")],
+            actions=[],
+            expected_action_count=1,
+        )
+        result = evaluate_case(case)
+        self.assertFalse(result.trace_assessment.task_completeness)
+        self.assertIn("empty_trace_when_actions_expected", result.trace_assessment.issues)
+        self.assertTrue(result.human_review_required)
 
     def test_documented_execution(self) -> None:
         action = ActionRecord(
@@ -39,6 +53,15 @@ class TraceTests(unittest.TestCase):
         result = evaluate_case(case)
         self.assertTrue(result.human_review_required)
         self.assertEqual(result.trace_assessment.failed_actions, 1)
+
+    def test_skipped_exception_requires_review(self) -> None:
+        case = ArtifactCase(
+            "trace_skip",
+            [Claim("x")],
+            [ActionRecord("a", "tool", "skipped", exception="cancelled")],
+        )
+        result = evaluate_case(case)
+        self.assertTrue(result.human_review_required)
 
     def test_invalid_action_status_rejected(self) -> None:
         case = ArtifactCase(

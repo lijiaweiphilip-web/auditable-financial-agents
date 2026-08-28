@@ -41,7 +41,7 @@ class HardeningTests(unittest.TestCase):
             ],
         )
         result = evaluate_case(case, AuditConfig(pervasiveness_threshold=0.9))
-        self.assertEqual(result.opinion, "Clean")
+        self.assertEqual(result.opinion, "Qualified")
         self.assertTrue(result.human_review_required)
 
     def test_skipped_exception_is_a_trace_issue(self) -> None:

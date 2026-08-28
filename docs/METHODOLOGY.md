@@ -10,11 +10,27 @@ A claim is treated as materially affected when the effective severity is at leas
 
 ## Evidence sufficiency
 
-Evidence sufficiency is the claim-weighted fraction of claims whose provenance, entity, period, and metric alignment are all valid.
+Let `w'_i = w_i / sum_j w_j` be normalized positive claim weights. Evidence
+sufficiency is `sum_i w'_i * evidence_valid_i`, where validity requires
+provenance, entity, period, and metric alignment.
+
+Scope limitation is `1 - evidence_sufficiency`.
 
 ## Pervasiveness
 
-Pervasiveness is the claim-weighted fraction of materially affected claims.
+Pervasiveness is `sum_i w'_i * material_i`, where a claim is material when its
+effective severity is at least 1.0. Materiality itself is a claim-level
+property; it is not hidden by a small weight. The label rule uses the maximum
+effective severity across claims, while `max_weighted_severity` is retained only
+as a deprecated diagnostic for compatibility.
+
+## Decision rule
+
+With sufficient evidence, the prototype classifies a case as `Clean` only when
+`max_effective_severity < 1`. A localized material issue is `Qualified`; a
+pervasive material issue is `Adverse`. Insufficient evidence produces
+`Disclaimer`. Uniform positive rescaling of all claim weights therefore leaves
+the label and normalized aggregate quantities unchanged.
 
 ## Research-label rule
 

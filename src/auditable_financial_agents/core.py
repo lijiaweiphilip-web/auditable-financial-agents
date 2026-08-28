@@ -67,6 +67,7 @@ def assess_claim(claim: Claim) -> ClaimAssessment:
 def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> AuditResult:
     validate_case(case)
     config = config or AuditConfig()
+    config.validate()
 
     assessments = [assess_claim(claim) for claim in case.claims]
     total_weight = sum(claim.weight for claim in case.claims)
@@ -82,6 +83,9 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         claim.weight * assessment.effective_severity
         for claim, assessment in zip(case.claims, assessments, strict=True)
     )
+    max_effective_severity = max(
+        assessment.effective_severity for assessment in assessments
+    )
     material_weight = sum(
         claim.weight
         for claim, assessment in zip(case.claims, assessments, strict=True)
@@ -94,11 +98,11 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         and scope_limitation >= config.scope_limitation_threshold
     ):
         opinion = "Disclaimer"
-    elif evidence_sufficiency >= config.evidence_threshold and max_weighted_severity < 1.0:
+    elif evidence_sufficiency >= config.evidence_threshold and max_effective_severity < 1.0:
         opinion = "Clean"
     elif (
         evidence_sufficiency >= config.evidence_threshold
-        and max_weighted_severity >= 1.0
+        and max_effective_severity >= 1.0
         and pervasiveness < config.pervasiveness_threshold
     ):
         opinion = "Qualified"
@@ -109,7 +113,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         # scope-limit threshold because of unusual weights/threshold choices.
         opinion = "Disclaimer"
 
-    trace = assess_trace(case.actions)
+    trace = assess_trace(case.actions, case.expected_action_count)
     critical = sorted(
         (
             assessment
@@ -127,6 +131,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     human_review_required = (
         opinion != "Clean"
         or severe_claim
+        or bool(trace.issues)
         or trace.failed_actions > 0
         or trace.undocumented_executions > 0
     )
@@ -134,6 +139,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     basis: list[str] = [
         f"evidence_sufficiency={evidence_sufficiency:.3f}",
         f"max_weighted_severity={max_weighted_severity:.3f}",
+        f"max_effective_severity={max_effective_severity:.3f}",
         f"pervasiveness={pervasiveness:.3f}",
         f"trace_completeness={trace.trace_completeness:.3f}",
     ]
@@ -152,6 +158,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         evidence_sufficiency=evidence_sufficiency,
         scope_limitation=scope_limitation,
         max_weighted_severity=max_weighted_severity,
+        max_effective_severity=max_effective_severity,
         pervasiveness=pervasiveness,
         human_review_required=human_review_required,
         critical_matters=critical_matters,

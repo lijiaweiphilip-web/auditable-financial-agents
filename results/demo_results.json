@@ -6,7 +6,10 @@
     "human_review_required": true,
     "evidence_sufficiency": 1.0,
     "pervasiveness": 1.0,
-    "trace_completeness": 1.0
+    "max_effective_severity": 9.0,
+    "trace_completeness": 1.0,
+    "task_completeness": null,
+    "completeness_basis": "executed_action_documentation_coverage"
   },
   {
     "example": "clean_case.json",
@@ -15,7 +18,10 @@
     "human_review_required": false,
     "evidence_sufficiency": 1.0,
     "pervasiveness": 0.0,
-    "trace_completeness": 1.0
+    "max_effective_severity": 0.0,
+    "trace_completeness": 1.0,
+    "task_completeness": null,
+    "completeness_basis": "executed_action_documentation_coverage"
   },
   {
     "example": "disclaimer_missing_evidence.json",
@@ -24,7 +30,22 @@
     "human_review_required": true,
     "evidence_sufficiency": 0.0,
     "pervasiveness": 0.0,
-    "trace_completeness": 1.0
+    "max_effective_severity": 0.0,
+    "trace_completeness": 1.0,
+    "task_completeness": null,
+    "completeness_basis": "executed_action_documentation_coverage"
+  },
+  {
+    "example": "empty_trace_expected.json",
+    "case_id": "empty_trace_expected",
+    "opinion": "Clean",
+    "human_review_required": true,
+    "evidence_sufficiency": 1.0,
+    "pervasiveness": 0.0,
+    "max_effective_severity": 0.0,
+    "trace_completeness": 1.0,
+    "task_completeness": false,
+    "completeness_basis": "expected_action_count"
   },
   {
     "example": "qualified_formula_error.json",
@@ -33,7 +54,10 @@
     "human_review_required": true,
     "evidence_sufficiency": 1.0,
     "pervasiveness": 0.285714,
-    "trace_completeness": 1.0
+    "max_effective_severity": 4.0,
+    "trace_completeness": 1.0,
+    "task_completeness": null,
+    "completeness_basis": "executed_action_documentation_coverage"
   },
   {
     "example": "trace_gap_case.json",
@@ -42,6 +66,9 @@
     "human_review_required": true,
     "evidence_sufficiency": 1.0,
     "pervasiveness": 0.0,
-    "trace_completeness": 0.0
+    "max_effective_severity": 0.0,
+    "trace_completeness": 0.0,
+    "task_completeness": null,
+    "completeness_basis": "executed_action_documentation_coverage"
   }
 ]

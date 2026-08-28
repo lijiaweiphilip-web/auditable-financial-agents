@@ -20,9 +20,18 @@ The prototype reports:
 - executed actions;
 - failed actions;
 - executed actions without complete evidence/hash records;
-- a simple trace-completeness ratio.
+- an executed-action documentation coverage ratio. This is not a claim that the
+  complete task plan was executed.
 
-Even when final claims receive a `Clean` research label, an undocumented executed action can trigger `human_review_required=True`.
+`ArtifactCase.expected_action_count` may be supplied when a task has an
+explicit expected action count. In that mode an empty or shorter trace is an
+issue and requires human review. Without an expected count, an empty trace has
+`task_completeness=None` rather than being described as a complete task.
+
+Any trace issue—including failed actions, skipped actions with exceptions,
+undocumented executions, or an unmet expected action count—sets
+`human_review_required=True`, even when final claims receive a `Clean` research
+label.
 
 ## Research questions for a stronger extension
 

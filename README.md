@@ -55,9 +55,11 @@ python scripts/build_demo_snapshot.py
 
 - Clean / Qualified / Adverse / Disclaimer research labels;
 - claim-level provenance and entity/period/metric alignment;
-- numeric and qualitative materiality, formula-check failure, and pervasiveness;
+- numeric and qualitative materiality, formula-check failure, normalized
+  pervasiveness, and claim-level severity decisions;
 - evidence sufficiency, critical-matter prioritization, and false-clean helper;
-- optional action-trace checks for failed or incompletely documented executions;
+- optional action-trace checks for failed, skipped, expected-but-missing, or
+  incompletely documented executions;
 - deterministic synthetic examples, tests, coverage, CI and hash manifest.
 
 The action-trace code is a **prospective research extension**, not an HCOMP
@@ -65,6 +67,8 @@ The action-trace code is a **prospective research extension**, not an HCOMP
 and [`docs/TRACE_EXTENSION.md`](docs/TRACE_EXTENSION.md).
 
 For a compact paper-to-code view, see [`docs/RESEARCH_MAP.md`](docs/RESEARCH_MAP.md).
+The formal prototype rules are summarized in
+[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md).
 
 ## Synthetic result boundary
 

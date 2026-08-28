@@ -1,0 +1,16 @@
+{
+  "case_id": "empty_trace_expected",
+  "expected_action_count": 1,
+  "metadata": {"source": "synthetic public-safe example", "extension": "action-trace audit"},
+  "claims": [
+    {
+      "claim_id": "reported_total",
+      "weight": 1.0,
+      "generated_value": 10.0,
+      "source_value": 10.0,
+      "materiality_threshold": 1.0,
+      "formula_check": "pass"
+    }
+  ],
+  "actions": []
+}

@@ -66,6 +66,17 @@ class AuditConfig:
     scope_limitation_threshold: float = 0.15
     severe_issue_threshold: float = 1.50
 
+    def validate(self) -> None:
+        for name, value in (
+            ("evidence_threshold", self.evidence_threshold),
+            ("pervasiveness_threshold", self.pervasiveness_threshold),
+            ("scope_limitation_threshold", self.scope_limitation_threshold),
+        ):
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be within [0, 1]")
+        if self.severe_issue_threshold < 0.0:
+            raise ValueError("severe_issue_threshold must be non-negative")
+
 
 @dataclass
 class ArtifactCase:
@@ -73,6 +84,7 @@ class ArtifactCase:
     claims: list[Claim]
     actions: list[ActionRecord] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    expected_action_count: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ArtifactCase:
@@ -81,6 +93,7 @@ class ArtifactCase:
             claims=[Claim.from_dict(item) for item in data.get("claims", [])],
             actions=[ActionRecord.from_dict(item) for item in data.get("actions", [])],
             metadata=dict(data.get("metadata", {})),
+            expected_action_count=data.get("expected_action_count"),
         )
 
 
@@ -103,6 +116,8 @@ class TraceAssessment:
     undocumented_executions: int
     trace_completeness: float
     issues: tuple[str, ...]
+    task_completeness: bool | None = None
+    completeness_basis: str = "executed_action_documentation_coverage"
 
 
 @dataclass
@@ -112,6 +127,7 @@ class AuditResult:
     evidence_sufficiency: float
     scope_limitation: float
     max_weighted_severity: float
+    max_effective_severity: float
     pervasiveness: float
     human_review_required: bool
     critical_matters: list[str]
@@ -157,3 +173,5 @@ def validate_case(case: ArtifactCase) -> None:
             raise ValueError(
                 f"action {action.action_id}: invalid status {action.status!r}"
             )
+    if case.expected_action_count is not None and case.expected_action_count < 0:
+        raise ValueError("expected_action_count must be non-negative when provided")

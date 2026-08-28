@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "paper": {
+    "title": "From Answers to Audit Opinions: Cost-Aware Expert Verification of Financial Artifacts from Tool-Using LLM Agents",
+    "doi": "10.1145/3834580.3838756",
+    "empirical_reproduction": {
+      "400_case": false,
+      "100_case": false,
+      "40_case": false
+    }
+  },
+  "concepts": [
+    {
+      "id": "research_labels",
+      "paper_concept": "Four research labels",
+      "public_implementation": "Deterministic label decision prototype",
+      "source_file": "src/auditable_financial_agents/core.py",
+      "function": "evaluate_case",
+      "test": "tests/test_core.py",
+      "synthetic_example": "examples/clean_case.json",
+      "empirical_reproduction": false,
+      "prospective_extension": false,
+      "boundary": "Synthetic public-safe logic; not the paper's expert study."
+    },
+    {
+      "id": "claim_assessment",
+      "paper_concept": "Evidence sufficiency, provenance, materiality, and pervasiveness",
+      "public_implementation": "Claim-level deterministic assessment",
+      "source_file": "src/auditable_financial_agents/core.py",
+      "function": "assess_claim",
+      "test": "tests/test_core.py",
+      "synthetic_example": "examples/qualified_formula_error.json",
+      "empirical_reproduction": false,
+      "prospective_extension": false,
+      "boundary": "Public prototype implements a compact decision contract."
+    },
+    {
+      "id": "trace_audit",
+      "paper_concept": "Action trace and escalation evidence",
+      "public_implementation": "Executed-action documentation coverage and expected-action semantics",
+      "source_file": "src/auditable_financial_agents/trace.py",
+      "function": "assess_trace",
+      "test": "tests/test_trace.py",
+      "synthetic_example": "examples/trace_gap_case.json",
+      "empirical_reproduction": false,
+      "prospective_extension": true,
+      "boundary": "Prospective public-safe extension; not an HCOMP empirical result."
+    },
+    {
+      "id": "false_clean",
+      "paper_concept": "False-clean risk measurement",
+      "public_implementation": "Batch false-clean-rate helper",
+      "source_file": "src/auditable_financial_agents/core.py",
+      "function": "false_clean_rate",
+      "test": "tests/test_hardening.py",
+      "synthetic_example": "examples/adverse_multiple_errors.json",
+      "empirical_reproduction": false,
+      "prospective_extension": false,
+      "boundary": "Synthetic helper only; no SEC-backed batch is included."
+    }
+  ]
+}

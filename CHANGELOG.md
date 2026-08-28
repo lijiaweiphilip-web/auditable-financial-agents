@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — formal semantics hardening candidate
+
+- Make label decisions invariant to uniform positive claim-weight scaling by
+  using normalized aggregate weights and claim-level effective severity.
+- Preserve `max_weighted_severity` as a deprecated diagnostic and add
+  `max_effective_severity`.
+- Clarify executed-action documentation coverage versus task completeness and
+  require human review for every trace issue.
+
 ## 0.1.0 — release candidate
 
 - Public-safe research-label and evidence/materiality logic for synthetic financial-artifact examples.
