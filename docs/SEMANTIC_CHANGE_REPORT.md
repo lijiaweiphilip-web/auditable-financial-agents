@@ -12,8 +12,15 @@ created.
 - Uniform positive weight scaling preserves normalized metrics and opinions.
 - Formula failures and qualitative materiality cannot be hidden by low weights.
 - Skipped exceptions and all other trace issues require human review.
-- Empty traces are not called complete tasks; task completeness is `None` unless
-  an expected action count is supplied.
+- Empty traces are not called complete tasks; coverage is nullable and task
+  completeness is `None` unless an expected record or execution count is
+  supplied.
+- `scope_limitation_threshold` is deprecated and no longer affects the opinion;
+  `evidence_threshold` is the sole evidence branch threshold.
+- Unknown formula checks trigger human review by default, with an explicit
+  informational opt-out.
+- Trace and result payloads carry schema version `2.0` and separate observed,
+  terminal, and successful-execution counts.
 
 ## Compatibility
 

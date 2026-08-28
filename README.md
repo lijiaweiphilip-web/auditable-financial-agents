@@ -60,6 +60,7 @@ python scripts/build_demo_snapshot.py
 - evidence sufficiency, critical-matter prioritization, and false-clean helper;
 - optional action-trace checks for failed, skipped, expected-but-missing, or
   incompletely documented executions;
+- schema-v2 trace counts with nullable executed-action documentation coverage;
 - deterministic synthetic examples, tests, coverage, CI and hash manifest.
 
 The action-trace code is a **prospective research extension**, not an HCOMP

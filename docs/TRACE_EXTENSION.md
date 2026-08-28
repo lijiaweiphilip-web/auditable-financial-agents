@@ -23,10 +23,17 @@ The prototype reports:
 - an executed-action documentation coverage ratio. This is not a claim that the
   complete task plan was executed.
 
-`ArtifactCase.expected_action_count` may be supplied when a task has an
-explicit expected action count. In that mode an empty or shorter trace is an
-issue and requires human review. Without an expected count, an empty trace has
-`task_completeness=None` rather than being described as a complete task.
+Trace schema version `2.0` additionally reports observed records, terminal
+records, successful executions, and nullable
+`executed_action_documentation_coverage`. The legacy `trace_completeness` is a
+deprecated nullable alias: with no executed actions it is `null`, not `1.0`.
+
+`ArtifactCase.expected_action_count` counts expected trace records. The separate
+`expected_executed_action_count` counts expected successful executions. In
+either mode an empty or shorter trace is an issue and requires human review;
+proposed-only, failed-only, and skipped-only traces are not task-complete.
+Without an expected count, an empty trace has `task_completeness=None` rather
+than being described as a complete task.
 
 Any trace issue—including failed actions, skipped actions with exceptions,
 undocumented executions, or an unmet expected action count—sets

@@ -43,7 +43,11 @@ def main() -> int:
                 "evidence_sufficiency": round(result.evidence_sufficiency, 6),
                 "pervasiveness": round(result.pervasiveness, 6),
                 "max_effective_severity": round(result.max_effective_severity, 6),
-                "trace_completeness": round(result.trace_assessment.trace_completeness, 6),
+                "trace_completeness": (
+                    None
+                    if result.trace_assessment.trace_completeness is None
+                    else round(result.trace_assessment.trace_completeness, 6)
+                ),
                 "task_completeness": result.trace_assessment.task_completeness,
                 "completeness_basis": result.trace_assessment.completeness_basis,
             }
@@ -64,7 +68,8 @@ def main() -> int:
         lines.append(
             f"| `{row['example']}` | {row['opinion']} | {str(row['human_review_required']).lower()} | "
             f"{row['evidence_sufficiency']:.3f} | {row['pervasiveness']:.3f} | "
-            f"{row['max_effective_severity']:.3f} | {row['trace_completeness']:.3f} | "
+            f"{row['max_effective_severity']:.3f} | "
+            f"{row['trace_completeness'] if row['trace_completeness'] is not None else 'not assessed'} | "
             f"{row['task_completeness'] if row['task_completeness'] is not None else 'not assessed'} |"
         )
     md_path = out_dir / "DEMO_RESULTS.md"

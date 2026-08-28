@@ -33,6 +33,20 @@ With sufficient evidence, the label decision is:
 materiality gate because multiplying all weights by a constant must not change
 the opinion.
 
-Trace completeness is the fraction of executed actions with both evidence refs
-and a result hash. It is not task completeness. When an expected action count is
-provided, missing actions are an explicit trace issue and require human review.
+`evidence_threshold` is the sole evidence decision threshold. The historical
+`scope_limitation_threshold` is accepted only as a deprecated compatibility
+field and emits a warning without affecting the label.
+
+Formula uncertainty remains distinct from formula failure: an unknown formula
+does not automatically make a claim material, but it triggers human review by
+default and is retained in the basis and critical matters. All numeric inputs
+must be finite.
+
+Trace schema version `2.0` reports the fraction of executed actions with both
+evidence refs and a result hash as nullable
+`executed_action_documentation_coverage`. The legacy `trace_completeness` is a
+nullable alias. With no executed actions both are `null`; this metric is not task
+completeness. `expected_action_count` counts trace records while
+`expected_executed_action_count` counts expected successful executions. Failed,
+skipped, or proposed-only traces cannot be task-complete, and every trace issue
+sets `human_review_required=True`.

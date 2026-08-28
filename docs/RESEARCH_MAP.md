@@ -11,8 +11,14 @@ empirical dataset.
 | Materiality and pervasiveness | `core.assess_claim`, `core.evaluate_case` | Numeric/qualitative severity and multiple-issue examples | Threshold-sensitivity grid and domain calibration | Domain-specific materiality profiles |
 | Formula checks and critical matters | `core.assess_claim`, critical sorting in `core.evaluate_case` | `examples/qualified_formula_error.json` and priority fields | Expert toll / broad reviewer protocol | Selective escalation policy experiments |
 | False-clean risk | `core.false_clean_rate` | Deterministic helper tests | 400-case diagnostic conclusions | Larger public-safe evaluation once licensed |
-| Action trace | `trace.assess_trace`, `schema.ActionRecord` | `examples/trace_gap_case.json` and `empty_trace_expected.json` | Upstream action logs from the accepted paper | Evidence-aware tool-call and human-escalation research |
+| Action trace | `trace.assess_trace`, `schema.ActionRecord`, `schema.TraceAssessment` (schema v2) | `examples/trace_gap_case.json` and `empty_trace_expected.json` | Upstream action logs from the accepted paper | Evidence-aware tool-call and human-escalation research |
 
 The action-trace path is a **prospective extension**, not an HCOMP 2026
 accepted-paper result. See [`TRACE_EXTENSION.md`](TRACE_EXTENSION.md) and
 [`NON_CLAIMS.md`](NON_CLAIMS.md) for boundaries.
+
+The v0.2 candidate treats `scope_limitation_threshold` as a deprecated
+compatibility input, keeps `evidence_threshold` as the sole evidence decision
+threshold, and defaults unknown formula checks to human review. These are
+prototype behavior semantics, not claims about the accepted paper's complete
+implementation.

@@ -93,10 +93,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     )
     pervasiveness = material_weight / total_weight
 
-    if (
-        evidence_sufficiency < config.evidence_threshold
-        and scope_limitation >= config.scope_limitation_threshold
-    ):
+    if evidence_sufficiency < config.evidence_threshold:
         opinion = "Disclaimer"
     elif evidence_sufficiency >= config.evidence_threshold and max_effective_severity < 1.0:
         opinion = "Clean"
@@ -113,7 +110,11 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         # scope-limit threshold because of unusual weights/threshold choices.
         opinion = "Disclaimer"
 
-    trace = assess_trace(case.actions, case.expected_action_count)
+    trace = assess_trace(
+        case.actions,
+        case.expected_action_count,
+        case.expected_executed_action_count,
+    )
     critical = sorted(
         (
             assessment
@@ -128,12 +129,22 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         assessment.effective_severity >= config.severe_issue_threshold
         for assessment in assessments
     )
+    unknown_formula_review = config.review_on_unknown_formula and any(
+        claim.formula_check == "unknown" for claim in case.claims
+    )
     human_review_required = (
         opinion != "Clean"
         or severe_claim
         or bool(trace.issues)
         or trace.failed_actions > 0
         or trace.undocumented_executions > 0
+        or unknown_formula_review
+    )
+
+    coverage_text = (
+        "null"
+        if trace.trace_completeness is None
+        else f"{trace.trace_completeness:.3f}"
     )
 
     basis: list[str] = [
@@ -141,8 +152,12 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         f"max_weighted_severity={max_weighted_severity:.3f}",
         f"max_effective_severity={max_effective_severity:.3f}",
         f"pervasiveness={pervasiveness:.3f}",
-        f"trace_completeness={trace.trace_completeness:.3f}",
+        f"trace_completeness={coverage_text}",
     ]
+    if unknown_formula_review:
+        basis.append("unresolved_formula_verification")
+    elif any(claim.formula_check == "unknown" for claim in case.claims):
+        basis.append("formula_verification_informational")
     if opinion == "Clean":
         basis.append("sufficient evidence with no material unresolved issue")
     elif opinion == "Qualified":
@@ -165,6 +180,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         claim_assessments=assessments,
         trace_assessment=trace,
         basis=basis,
+        schema_version="2.0",
     )
 
 

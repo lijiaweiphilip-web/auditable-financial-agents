@@ -8,6 +8,10 @@
   `max_effective_severity`.
 - Clarify executed-action documentation coverage versus task completeness and
   require human review for every trace issue.
+- Candidate v0.2 semantics deprecate `scope_limitation_threshold`, make unknown
+  formula verification reviewable by default, reject non-finite numeric input,
+  and add nullable trace schema v2 coverage/count fields. No release is created
+  by this candidate.
 
 ## 0.1.0 — release candidate
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 from auditable_financial_agents import ActionRecord, ArtifactCase, AuditConfig, Claim, evaluate_case
@@ -29,8 +31,51 @@ class HardeningTests(unittest.TestCase):
     def test_unknown_formula_is_retained_as_uncertainty(self) -> None:
         result = evaluate_case(ArtifactCase("unknown", [Claim("x", formula_check="unknown")]))
         self.assertEqual(result.opinion, "Clean")
-        self.assertFalse(result.human_review_required)
+        self.assertTrue(result.human_review_required)
         self.assertIn("formula_check_unknown", result.claim_assessments[0].reasons)
+        self.assertIn("unresolved_formula_verification", result.basis)
+
+    def test_unknown_formula_can_be_informational_by_explicit_opt_out(self) -> None:
+        result = evaluate_case(
+            ArtifactCase("unknown-opt-out", [Claim("x", formula_check="unknown")]),
+            AuditConfig(review_on_unknown_formula=False),
+        )
+        self.assertEqual(result.opinion, "Clean")
+        self.assertFalse(result.human_review_required)
+        self.assertIn("formula_verification_informational", result.basis)
+
+    def test_unknown_formula_enters_critical_matters_by_default(self) -> None:
+        result = evaluate_case(ArtifactCase("unknown-critical", [Claim("x", formula_check="unknown")]))
+        self.assertEqual(result.critical_matters, ["x"])
+
+    def test_scope_threshold_is_deprecated_and_does_not_change_opinion(self) -> None:
+        case = ArtifactCase("scope-compat", [Claim("x", provenance_valid=False)])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            legacy = evaluate_case(case, AuditConfig(scope_limitation_threshold=0.99))
+        current = evaluate_case(case)
+        self.assertEqual(legacy.opinion, current.opinion)
+        self.assertTrue(any(item.category is DeprecationWarning for item in caught))
+
+    def test_nonfinite_claim_values_are_rejected(self) -> None:
+        fields = ("weight", "generated_value", "source_value", "materiality_threshold", "qualitative_severity")
+        for field_name in fields:
+            value = math.inf if field_name != "source_value" else math.nan
+            kwargs = {field_name: value}
+            with self.subTest(field_name=field_name), self.assertRaises(ValueError):
+                evaluate_case(ArtifactCase("nonfinite-claim", [Claim("x", **kwargs)]))
+
+    def test_nonfinite_config_values_are_rejected(self) -> None:
+        for field_name in ("evidence_threshold", "pervasiveness_threshold", "severe_issue_threshold"):
+            kwargs = {field_name: math.nan}
+            with self.subTest(field_name=field_name), self.assertRaises(ValueError):
+                evaluate_case(ArtifactCase("nonfinite-config", [Claim("x")]), AuditConfig(**kwargs))
+
+    def test_expected_executed_action_count_is_preserved_from_dict(self) -> None:
+        case = ArtifactCase.from_dict(
+            {"case_id": "expected-executed", "claims": [{"claim_id": "x"}], "expected_executed_action_count": 2}
+        )
+        self.assertEqual(case.expected_executed_action_count, 2)
 
     def test_severe_issue_requires_human_review_even_when_localized(self) -> None:
         case = ArtifactCase(
@@ -46,7 +91,8 @@ class HardeningTests(unittest.TestCase):
 
     def test_skipped_exception_is_a_trace_issue(self) -> None:
         result = assess_trace([ActionRecord("skip", "tool", "skipped", exception="cancelled")])
-        self.assertEqual(result.trace_completeness, 1.0)
+        self.assertIsNone(result.trace_completeness)
+        self.assertIsNone(result.executed_action_documentation_coverage)
         self.assertEqual(result.issues, ("skip:skipped_with_exception",))
 
     def test_from_dict_preserves_action_evidence_refs(self) -> None:
@@ -67,6 +113,13 @@ class HardeningTests(unittest.TestCase):
         )
         result = evaluate_case(case)
         self.assertEqual(result.trace_assessment.trace_completeness, 1.0)
+        self.assertEqual(result.trace_assessment.observed_action_records, 1)
+        self.assertEqual(result.trace_assessment.successful_executions, 1)
+
+    def test_trace_assessment_has_v2_schema_version(self) -> None:
+        result = evaluate_case(ArtifactCase("schema", [Claim("x")]))
+        self.assertEqual(result.schema_version, "2.0")
+        self.assertEqual(result.trace_assessment.schema_version, "2.0")
 
     def test_cli_demo_subcommand_returns_zero(self) -> None:
         root = Path(__file__).resolve().parents[1]

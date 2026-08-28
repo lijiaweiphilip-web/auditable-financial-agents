@@ -9,7 +9,7 @@
     "max_effective_severity": 9.0,
     "trace_completeness": 1.0,
     "task_completeness": null,
-    "completeness_basis": "executed_action_documentation_coverage"
+    "completeness_basis": "no_expected_actions"
   },
   {
     "example": "clean_case.json",
@@ -21,7 +21,7 @@
     "max_effective_severity": 0.0,
     "trace_completeness": 1.0,
     "task_completeness": null,
-    "completeness_basis": "executed_action_documentation_coverage"
+    "completeness_basis": "no_expected_actions"
   },
   {
     "example": "disclaimer_missing_evidence.json",
@@ -31,9 +31,9 @@
     "evidence_sufficiency": 0.0,
     "pervasiveness": 0.0,
     "max_effective_severity": 0.0,
-    "trace_completeness": 1.0,
+    "trace_completeness": null,
     "task_completeness": null,
-    "completeness_basis": "executed_action_documentation_coverage"
+    "completeness_basis": "no_expected_actions"
   },
   {
     "example": "empty_trace_expected.json",
@@ -43,9 +43,9 @@
     "evidence_sufficiency": 1.0,
     "pervasiveness": 0.0,
     "max_effective_severity": 0.0,
-    "trace_completeness": 1.0,
+    "trace_completeness": null,
     "task_completeness": false,
-    "completeness_basis": "expected_action_count"
+    "completeness_basis": "expected_action_records"
   },
   {
     "example": "qualified_formula_error.json",
@@ -57,7 +57,7 @@
     "max_effective_severity": 4.0,
     "trace_completeness": 1.0,
     "task_completeness": null,
-    "completeness_basis": "executed_action_documentation_coverage"
+    "completeness_basis": "no_expected_actions"
   },
   {
     "example": "trace_gap_case.json",
@@ -69,6 +69,6 @@
     "max_effective_severity": 0.0,
     "trace_completeness": 0.0,
     "task_completeness": null,
-    "completeness_basis": "executed_action_documentation_coverage"
+    "completeness_basis": "no_expected_actions"
   }
 ]

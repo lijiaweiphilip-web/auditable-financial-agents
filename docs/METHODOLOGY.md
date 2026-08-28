@@ -16,6 +16,11 @@ provenance, entity, period, and metric alignment.
 
 Scope limitation is `1 - evidence_sufficiency`.
 
+`evidence_threshold` is the only threshold used for the evidence branch of the
+opinion rule. The former `scope_limitation_threshold` is an optional deprecated
+compatibility field; supplying it emits a warning but does not change the
+opinion. All numeric inputs are required to be finite.
+
 ## Pervasiveness
 
 Pervasiveness is `sum_i w'_i * material_i`, where a claim is material when its
@@ -42,3 +47,20 @@ With configurable thresholds, the prototype follows the same qualitative structu
 - `Disclaimer`: insufficient evidence blocks a safe judgment.
 
 This implementation is a public-safe teaching/research prototype and should not be treated as the full experimental implementation of the accepted paper.
+
+## Formula uncertainty and trace schema
+
+`formula_check="unknown"` preserves the claim's label calculation but, by
+default, adds `human_review_required=True`, the claim to `critical_matters`, and
+an `unresolved_formula_verification` basis entry. `AuditConfig` exposes an
+explicit `review_on_unknown_formula=False` opt-out for informational use; the
+original `formula_check_unknown` reason remains visible.
+
+Trace assessments use schema version `2.0`. The nullable
+`executed_action_documentation_coverage` is the fraction of executed actions
+with both evidence references and a result hash. The deprecated
+`trace_completeness` field is a nullable alias. With zero executed actions both
+fields are `null`, never `1.0`. `expected_action_count` counts expected trace
+records; `expected_executed_action_count` separately counts expected successful
+executions. Proposed, failed, and skipped records therefore cannot be described
+as a completed task. Any trace issue requires human review.

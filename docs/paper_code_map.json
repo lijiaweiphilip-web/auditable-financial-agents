@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "paper": {
     "title": "From Answers to Audit Opinions: Cost-Aware Expert Verification of Financial Artifacts from Tool-Using LLM Agents",
     "doi": "10.1145/3834580.3838756",
@@ -37,7 +37,7 @@
     {
       "id": "trace_audit",
       "paper_concept": "Action trace and escalation evidence",
-      "public_implementation": "Executed-action documentation coverage and expected-action semantics",
+      "public_implementation": "Trace schema v2 with executed-action documentation coverage and expected-action semantics",
       "source_file": "src/auditable_financial_agents/trace.py",
       "function": "assess_trace",
       "test": "tests/test_trace.py",
