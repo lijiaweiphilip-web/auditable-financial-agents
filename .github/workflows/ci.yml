@@ -21,14 +21,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package
         run: python -m pip install -e .[dev]
+      - name: Unit and integration tests
+        run: python -m coverage run --source=src/auditable_financial_agents -m unittest discover -s tests -v
+      - name: Coverage gate
+        run: python -m coverage report --fail-under=97
       - name: Base install smoke
         run: |
-          python -m pip install --no-deps .
-          financial-agent-audit --help
-      - name: Unit and integration tests
-        run: coverage run --source=src/auditable_financial_agents -m unittest discover -s tests -v
-      - name: Coverage gate
-        run: coverage report --fail-under=97
+          python -m venv .base-venv
+          .base-venv/bin/python -m pip install --no-deps .
+          .base-venv/bin/financial-agent-audit --help
       - name: Compile check
         run: python -m compileall -q src tests
       - name: Ruff check
