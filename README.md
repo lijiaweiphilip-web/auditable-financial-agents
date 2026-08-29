@@ -35,7 +35,7 @@ python -m pip install -e .[dev]
 financial-agent-audit demo --examples examples
 python -m unittest discover -s tests -v
 coverage run -m unittest discover -s tests -v
-coverage report --fail-under=85
+coverage report --fail-under=97
 ```
 
 Evaluate one synthetic case and save its certificate:
@@ -62,6 +62,10 @@ python scripts/build_demo_snapshot.py
   incompletely documented executions;
 - schema-v2 trace counts with nullable executed-action documentation coverage;
 - deterministic synthetic examples, tests, coverage, CI and hash manifest.
+
+The current branch is a `v0.2.0` behavior-change candidate, not a published
+release. Its input contract rejects partial numeric claims, non-boolean flags,
+and non-finite values; unknown formula checks are reviewable by default.
 
 The action-trace code is a **prospective research extension**, not an HCOMP
 2026 accepted-paper result. See [`docs/PAPER_MAPPING.md`](docs/PAPER_MAPPING.md)

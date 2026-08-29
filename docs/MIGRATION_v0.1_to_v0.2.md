@@ -1,13 +1,16 @@
 # Migration guide: v0.1 to the v0.2 candidate
 
-This branch prepares a future `v0.2.0` behavior change. It is not a release and
-does not change the package version yet.
+This branch prepares a future `v0.2.0` behavior change. The candidate package
+metadata is set to `0.2.0` for clean-install testing, but it is not a release
+until the behavior-change gate is approved.
 
 ## Added
 
 - `AuditConfig.review_on_unknown_formula` (default `True`).
 - `ArtifactCase.expected_executed_action_count`.
 - `AuditResult.schema_version` and `TraceAssessment.schema_version` (`"2.0"`).
+- `AuditResult.max_effective_severity` and `informational_matters` make
+  claim-level materiality and explicit review opt-outs machine-readable.
 - Nullable `TraceAssessment.executed_action_documentation_coverage`.
 - Trace counts: `observed_action_records`, `terminal_action_records`, and
   `successful_executions`.

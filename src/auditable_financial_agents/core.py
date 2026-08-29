@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 
 from .schema import (
@@ -20,7 +21,20 @@ def _numeric_severity(claim: Claim) -> float:
         or claim.materiality_threshold is None
     ):
         return 0.0
-    return abs(claim.generated_value - claim.source_value) / claim.materiality_threshold
+    difference = claim.generated_value - claim.source_value
+    if not math.isfinite(difference):
+        raise ValueError(f"claim {claim.claim_id}: numeric difference overflowed")
+    severity = abs(difference) / claim.materiality_threshold
+    if not math.isfinite(severity):
+        raise ValueError(f"claim {claim.claim_id}: numeric severity overflowed")
+    return severity
+
+
+def _finite_product(name: str, left: float, right: float) -> float:
+    value = left * right
+    if not math.isfinite(value):
+        raise ValueError(f"{name} overflowed; use finite, representable inputs")
+    return value
 
 
 def assess_claim(claim: Claim) -> ClaimAssessment:
@@ -51,7 +65,15 @@ def assess_claim(claim: Claim) -> ClaimAssessment:
 
     material = effective_severity >= 1.0
     uncertainty_multiplier = 1.25 if not evidence_valid or claim.formula_check == "unknown" else 1.0
-    weighted_priority = claim.weight * max(effective_severity, 0.10) * uncertainty_multiplier
+    weighted_priority = _finite_product(
+        f"claim {claim.claim_id} weighted priority",
+        _finite_product(
+            f"claim {claim.claim_id} weighted severity",
+            claim.weight,
+            max(effective_severity, 0.10),
+        ),
+        uncertainty_multiplier,
+    )
 
     return ClaimAssessment(
         claim_id=claim.claim_id,
@@ -70,28 +92,38 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     config.validate()
 
     assessments = [assess_claim(claim) for claim in case.claims]
-    total_weight = sum(claim.weight for claim in case.claims)
-    valid_weight = sum(
-        claim.weight
-        for claim, assessment in zip(case.claims, assessments, strict=True)
+    max_weight = max(claim.weight for claim in case.claims)
+    normalized_weights = [claim.weight / max_weight for claim in case.claims]
+    total_normalized_weight = math.fsum(normalized_weights)
+    valid_weight = math.fsum(
+        normalized_weight
+        for normalized_weight, assessment in zip(
+            normalized_weights, assessments, strict=True
+        )
         if assessment.evidence_valid
     )
-    evidence_sufficiency = valid_weight / total_weight
+    evidence_sufficiency = valid_weight / total_normalized_weight
     scope_limitation = 1.0 - evidence_sufficiency
 
     max_weighted_severity = max(
-        claim.weight * assessment.effective_severity
+        _finite_product(
+            f"claim {claim.claim_id} weighted severity",
+            claim.weight,
+            assessment.effective_severity,
+        )
         for claim, assessment in zip(case.claims, assessments, strict=True)
     )
     max_effective_severity = max(
         assessment.effective_severity for assessment in assessments
     )
-    material_weight = sum(
-        claim.weight
-        for claim, assessment in zip(case.claims, assessments, strict=True)
+    material_weight = math.fsum(
+        normalized_weight
+        for normalized_weight, assessment in zip(
+            normalized_weights, assessments, strict=True
+        )
         if assessment.material
     )
-    pervasiveness = material_weight / total_weight
+    pervasiveness = material_weight / total_normalized_weight
 
     if evidence_sufficiency < config.evidence_threshold:
         opinion = "Disclaimer"
@@ -115,15 +147,25 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         case.expected_action_count,
         case.expected_executed_action_count,
     )
+    informational_claim_ids = {
+        claim.claim_id
+        for claim in case.claims
+        if claim.formula_check == "unknown" and not config.review_on_unknown_formula
+    }
     critical = sorted(
         (
-            assessment
-            for assessment in assessments
-            if assessment.material or not assessment.evidence_valid or assessment.reasons
+            assessment for assessment in assessments
+            if assessment.claim_id not in informational_claim_ids
+            and (
+                assessment.material
+                or not assessment.evidence_valid
+                or assessment.reasons
+            )
         ),
         key=lambda item: (-item.weighted_priority, item.claim_id),
     )
     critical_matters = [item.claim_id for item in critical[:5]]
+    informational_matters = sorted(informational_claim_ids)
 
     severe_claim = any(
         assessment.effective_severity >= config.severe_issue_threshold
@@ -167,6 +209,16 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     else:
         basis.append("evidence limitation blocks a safe clean judgment")
 
+    numeric_outputs = {
+        "evidence_sufficiency": evidence_sufficiency,
+        "scope_limitation": scope_limitation,
+        "max_weighted_severity": max_weighted_severity,
+        "max_effective_severity": max_effective_severity,
+        "pervasiveness": pervasiveness,
+    }
+    if not all(math.isfinite(value) for value in numeric_outputs.values()):
+        raise ValueError("audit result contains a non-finite numeric output")
+
     return AuditResult(
         case_id=case.case_id,
         opinion=opinion,
@@ -181,6 +233,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         trace_assessment=trace,
         basis=basis,
         schema_version="2.0",
+        informational_matters=informational_matters,
     )
 
 

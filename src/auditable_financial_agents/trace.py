@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .schema import ActionRecord, TraceAssessment
+from .schema import ActionRecord, TraceAssessment, validate_action
 
 
 def _validate_expected_count(name: str, value: int | None) -> None:
@@ -22,9 +22,11 @@ def assess_trace(
     failed = 0
     undocumented = 0
     documented = 0
+    successful = 0
 
     terminal = 0
     for action in actions:
+        validate_action(action)
         if action.status == "executed":
             executed += 1
             terminal += 1
@@ -35,6 +37,10 @@ def assess_trace(
             else:
                 undocumented += 1
                 issues.append(f"{action.action_id}:executed_without_complete_evidence")
+            if action.exception:
+                issues.append(f"{action.action_id}:executed_with_exception")
+            else:
+                successful += 1
         elif action.status == "failed":
             failed += 1
             terminal += 1
@@ -43,11 +49,13 @@ def assess_trace(
             terminal += 1
             if action.exception:
                 issues.append(f"{action.action_id}:skipped_with_exception")
+            else:
+                issues.append(f"{action.action_id}:skipped_without_reason")
 
     record_count_ok = expected_action_count is None or len(actions) >= expected_action_count
     execution_count_ok = (
         expected_executed_action_count is None
-        or executed >= expected_executed_action_count
+        or successful >= expected_executed_action_count
     )
     if expected_action_count is None and expected_executed_action_count is None:
         task_completeness = None
@@ -59,12 +67,12 @@ def assess_trace(
             completeness_basis = "expected_executed_actions"
         else:
             completeness_basis = "expected_action_records"
-        all_records_executed = bool(actions) and all(
-            action.status == "executed" for action in actions
+        all_records_successful = bool(actions) and all(
+            action.status == "executed" and not action.exception for action in actions
         )
         no_records_expected = expected_action_count == 0 and expected_executed_action_count in (None, 0)
         task_completeness = no_records_expected or (
-            record_count_ok and execution_count_ok and all_records_executed
+            record_count_ok and execution_count_ok and all_records_successful
         )
         if not record_count_ok:
             issues.append(
@@ -88,6 +96,7 @@ def assess_trace(
         executed_action_documentation_coverage=trace_completeness,
         observed_action_records=len(actions),
         terminal_action_records=terminal,
-        successful_executions=executed,
+        successful_executions=successful,
+        expected_action_count=expected_action_count,
         expected_executed_action_count=expected_executed_action_count,
     )

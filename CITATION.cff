@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this research prototype, please cite the repository and the preferred HCOMP 2026 paper below."
 title: "Auditable Financial Agents: Public-Safe Research Prototype"
-version: "0.1.0"
+version: "0.2.0"
 authors:
   - family-names: "Li"
     given-names: "Jiawei"
