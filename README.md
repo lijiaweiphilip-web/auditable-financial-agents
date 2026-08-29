@@ -33,8 +33,9 @@ python -m venv .venv
 # POSIX:   source .venv/bin/activate
 python -m pip install -e .[dev]
 financial-agent-audit demo --examples examples
+financial-agent-audit validate-case examples/clean_case.json
 python -m unittest discover -s tests -v
-coverage run -m unittest discover -s tests -v
+coverage run --source=src/auditable_financial_agents -m unittest discover -s tests -v
 coverage report --fail-under=97
 ```
 

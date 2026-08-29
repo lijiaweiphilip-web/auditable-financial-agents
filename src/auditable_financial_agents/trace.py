@@ -26,12 +26,12 @@ def assess_trace(
 
     terminal = 0
     for action in actions:
-        validate_action(action)
+        validate_action(action, emit_deprecation=False)
         if action.status == "executed":
             executed += 1
             terminal += 1
             has_evidence = bool(action.evidence_refs)
-            has_hash = bool(action.result_hash)
+            has_hash = action.effective_digest() is not None
             if has_evidence and has_hash:
                 documented += 1
             else:
@@ -71,7 +71,9 @@ def assess_trace(
             action.status == "executed" and not action.exception for action in actions
         )
         no_records_expected = expected_action_count == 0 and expected_executed_action_count in (None, 0)
-        task_completeness = no_records_expected or (
+        task_completeness = (
+            no_records_expected and not actions
+        ) or (
             record_count_ok and execution_count_ok and all_records_successful
         )
         if not record_count_ok:

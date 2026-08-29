@@ -4,6 +4,7 @@ import math
 from collections.abc import Iterable
 
 from .schema import (
+    VALID_OPINIONS,
     ArtifactCase,
     AuditConfig,
     AuditResult,
@@ -92,8 +93,13 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     config.validate()
 
     assessments = [assess_claim(claim) for claim in case.claims]
-    max_weight = max(claim.weight for claim in case.claims)
-    normalized_weights = [claim.weight / max_weight for claim in case.claims]
+    try:
+        total_weight = math.fsum(claim.weight for claim in case.claims)
+    except OverflowError as exc:
+        raise ValueError("claim weights must have a finite positive sum") from exc
+    if not math.isfinite(total_weight) or total_weight <= 0:
+        raise ValueError("claim weights must have a finite positive sum")
+    normalized_weights = [claim.weight / total_weight for claim in case.claims]
     total_normalized_weight = math.fsum(normalized_weights)
     valid_weight = math.fsum(
         normalized_weight
@@ -152,10 +158,20 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         for claim in case.claims
         if claim.formula_check == "unknown" and not config.review_on_unknown_formula
     }
+    invalid_evidence_ids = {
+        assessment.claim_id
+        for assessment in assessments
+        if not assessment.evidence_valid
+    }
     critical = sorted(
         (
             assessment for assessment in assessments
             if assessment.claim_id not in informational_claim_ids
+            and (
+                config.review_on_invalid_evidence
+                or assessment.material
+                or assessment.claim_id not in invalid_evidence_ids
+            )
             and (
                 assessment.material
                 or not assessment.evidence_valid
@@ -165,7 +181,14 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         key=lambda item: (-item.weighted_priority, item.claim_id),
     )
     critical_matters = [item.claim_id for item in critical[:5]]
-    informational_matters = sorted(informational_claim_ids)
+    informational_matters = sorted(
+        informational_claim_ids
+        | (
+            invalid_evidence_ids
+            if not config.review_on_invalid_evidence
+            else set()
+        )
+    )
 
     severe_claim = any(
         assessment.effective_severity >= config.severe_issue_threshold
@@ -174,13 +197,13 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
     unknown_formula_review = config.review_on_unknown_formula and any(
         claim.formula_check == "unknown" for claim in case.claims
     )
+    invalid_evidence_review = config.review_on_invalid_evidence and bool(invalid_evidence_ids)
     human_review_required = (
         opinion != "Clean"
         or severe_claim
         or bool(trace.issues)
-        or trace.failed_actions > 0
-        or trace.undocumented_executions > 0
         or unknown_formula_review
+        or invalid_evidence_review
     )
 
     coverage_text = (
@@ -200,7 +223,9 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         basis.append("unresolved_formula_verification")
     elif any(claim.formula_check == "unknown" for claim in case.claims):
         basis.append("formula_verification_informational")
-    if opinion == "Clean":
+    if opinion == "Clean" and human_review_required:
+        basis.append("clean opinion with unresolved human-review matters")
+    elif opinion == "Clean":
         basis.append("sufficient evidence with no material unresolved issue")
     elif opinion == "Qualified":
         basis.append("material issue is localized under the configured threshold")
@@ -244,6 +269,10 @@ def false_clean_rate(
     expected_list = list(expected)
     if len(predicted_list) != len(expected_list):
         raise ValueError("predicted and expected lengths differ")
+    for name, labels in (("predicted", predicted_list), ("expected", expected_list)):
+        invalid = [label for label in labels if label not in VALID_OPINIONS]
+        if invalid:
+            raise ValueError(f"{name} contains invalid opinion label: {invalid[0]!r}")
     non_clean = sum(label != "Clean" for label in expected_list)
     false_clean = sum(
         p == "Clean" and e != "Clean"

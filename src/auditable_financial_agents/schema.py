@@ -8,6 +8,17 @@ from typing import Any
 
 VALID_OPINIONS = {"Clean", "Qualified", "Adverse", "Disclaimer"}
 VALID_ACTION_STATUS = {"proposed", "executed", "failed", "skipped"}
+_DIGEST_RE = r"^sha256:[0-9a-f]{64}$"
+
+
+class InputValidationError(ValueError):
+    """A path-aware, user-facing input contract error."""
+
+    def __init__(self, path: str, field: str, reason: str) -> None:
+        self.path = path
+        self.field = field
+        self.reason = reason
+        super().__init__(f"{path}.{field}: {reason}")
 
 
 def _is_real_number(value: Any) -> bool:
@@ -36,6 +47,42 @@ def _require_optional_finite_number(name: str, value: Any) -> None:
         _require_finite_number(name, value)
 
 
+def _reject_unknown(data: dict[str, Any], allowed: set[str], path: str) -> None:
+    unknown = sorted(set(data) - allowed)
+    if unknown:
+        raise InputValidationError(path, unknown[0], "unknown field")
+
+
+def _digest_from_legacy(value: str, path: str) -> dict[str, str]:
+    import re
+
+    if not isinstance(value, str) or not re.fullmatch(_DIGEST_RE, value):
+        raise InputValidationError(path, "result_hash", "expected sha256:<64 lowercase hex>")
+    return {"algorithm": "sha256", "value": value.split(":", 1)[1]}
+
+
+@dataclass(frozen=True)
+class ResultDigest:
+    algorithm: str
+    value: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], path: str = "result_digest") -> ResultDigest:
+        if not isinstance(data, dict):
+            raise InputValidationError(path, "", "must be an object")
+        _reject_unknown(data, {"algorithm", "value"}, path)
+        if data.get("algorithm") != "sha256":
+            raise InputValidationError(path, "algorithm", "must be sha256")
+        value = data.get("value")
+        if not isinstance(value, str):
+            raise InputValidationError(path, "value", "must be a string")
+        import re
+
+        if not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise InputValidationError(path, "value", "must be 64 lowercase hexadecimal characters")
+        return cls(algorithm="sha256", value=value)
+
+
 @dataclass(frozen=True)
 class Claim:
     claim_id: str
@@ -54,8 +101,21 @@ class Claim:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Claim:
         if not isinstance(data, dict):
-            raise ValueError("claim must be an object")
-        claim = cls(**data)
+            raise InputValidationError("claim", "", "must be an object")
+        _reject_unknown(
+            data,
+            {
+                "claim_id", "weight", "generated_value", "source_value",
+                "materiality_threshold", "provenance_valid", "entity_aligned",
+                "period_aligned", "metric_aligned", "formula_check",
+                "qualitative_severity", "note",
+            },
+            "claim",
+        )
+        try:
+            claim = cls(**data)
+        except TypeError as exc:
+            raise InputValidationError("claim", "", str(exc)) from exc
         _validate_claim(claim)
         return claim
 
@@ -78,24 +138,61 @@ class ActionRecord:
     evidence_refs: tuple[str, ...] = ()
     result_hash: str | None = None
     exception: str | None = None
+    # Added after the legacy fields so positional callers retain the v0.1 API.
+    result_digest: ResultDigest | None = None
+
+    def __post_init__(self) -> None:
+        # Direct construction is part of the public Python API.  Validate the
+        # shape here as well as in ArtifactCase.from_dict/evaluate_case, while
+        # keeping deprecation warnings to a single emission at construction.
+        validate_action(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ActionRecord:
         if not isinstance(data, dict):
-            raise ValueError("action must be an object")
+            raise InputValidationError("action", "", "must be an object")
+        _reject_unknown(
+            data,
+            {"action_id", "tool", "status", "evidence_refs", "result_digest", "result_hash", "exception"},
+            "action",
+        )
         raw_refs = data.get("evidence_refs", ())
         if isinstance(raw_refs, str) or not isinstance(raw_refs, (list, tuple)):
-            raise ValueError("evidence_refs must be a list or tuple of strings")
-        action = cls(
-            action_id=data["action_id"],
-            tool=data["tool"],
-            status=data["status"],
-            evidence_refs=tuple(raw_refs),
-            result_hash=data.get("result_hash"),
-            exception=data.get("exception"),
-        )
-        validate_action(action)
+            raise InputValidationError("action", "evidence_refs", "must be a list of strings")
+        if "result_digest" in data and "result_hash" in data:
+            raise InputValidationError("action", "result_digest", "cannot be combined with deprecated result_hash")
+        digest = None
+        legacy_hash = data.get("result_hash")
+        if "result_digest" in data:
+            digest = ResultDigest.from_dict(data["result_digest"], "action.result_digest")
+        elif legacy_hash is not None:
+            _digest_from_legacy(legacy_hash, "action")
+        try:
+            action = cls(
+                action_id=data["action_id"],
+                tool=data["tool"],
+                status=data["status"],
+                evidence_refs=tuple(raw_refs),
+                result_hash=legacy_hash,
+                exception=data.get("exception"),
+                result_digest=digest,
+            )
+        except KeyError as exc:
+            raise InputValidationError("action", str(exc).strip("'"), "required field missing") from exc
+        except InputValidationError:
+            raise
+        except ValueError as exc:
+            raise InputValidationError("action", "", str(exc)) from exc
+        except TypeError as exc:
+            raise InputValidationError("action", "", str(exc)) from exc
         return action
+
+    def effective_digest(self) -> ResultDigest | None:
+        if self.result_digest is not None:
+            return self.result_digest
+        if self.result_hash is not None:
+            return ResultDigest.from_dict(_digest_from_legacy(self.result_hash, "action"))
+        return None
 
 
 @dataclass(frozen=True)
@@ -105,6 +202,7 @@ class AuditConfig:
     scope_limitation_threshold: float | None = None
     severe_issue_threshold: float = 1.50
     review_on_unknown_formula: bool = True
+    review_on_invalid_evidence: bool = True
 
     def __post_init__(self) -> None:
         if self.scope_limitation_threshold is not None:
@@ -120,6 +218,7 @@ class AuditConfig:
         _require_finite_number("pervasiveness_threshold", self.pervasiveness_threshold)
         _require_finite_number("severe_issue_threshold", self.severe_issue_threshold)
         _require_bool("review_on_unknown_formula", self.review_on_unknown_formula)
+        _require_bool("review_on_invalid_evidence", self.review_on_invalid_evidence)
         for name, value in (
             ("evidence_threshold", self.evidence_threshold),
             ("pervasiveness_threshold", self.pervasiveness_threshold),
@@ -148,24 +247,35 @@ class ArtifactCase:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ArtifactCase:
         if not isinstance(data, dict):
-            raise ValueError("case must be an object")
+            raise InputValidationError("case", "", "must be an object")
+        _reject_unknown(
+            data,
+            {
+                "case_id", "claims", "actions", "metadata",
+                "expected_action_count", "expected_executed_action_count",
+            },
+            "case",
+        )
         raw_claims = data.get("claims", [])
         raw_actions = data.get("actions", [])
         if not isinstance(raw_claims, list):
-            raise ValueError("claims must be a list")
+            raise InputValidationError("case", "claims", "must be a list")
         if not isinstance(raw_actions, list):
-            raise ValueError("actions must be a list")
+            raise InputValidationError("case", "actions", "must be a list")
         raw_metadata = data.get("metadata", {})
         if not isinstance(raw_metadata, dict):
-            raise ValueError("metadata must be an object")
-        case = cls(
-            case_id=data["case_id"],
-            claims=[Claim.from_dict(item) for item in raw_claims],
-            actions=[ActionRecord.from_dict(item) for item in raw_actions],
-            metadata=dict(raw_metadata),
-            expected_action_count=data.get("expected_action_count"),
-            expected_executed_action_count=data.get("expected_executed_action_count"),
-        )
+            raise InputValidationError("case", "metadata", "must be an object")
+        try:
+            case = cls(
+                case_id=data["case_id"],
+                claims=[Claim.from_dict(item) for item in raw_claims],
+                actions=[ActionRecord.from_dict(item) for item in raw_actions],
+                metadata=dict(raw_metadata),
+                expected_action_count=data.get("expected_action_count"),
+                expected_executed_action_count=data.get("expected_executed_action_count"),
+            )
+        except KeyError as exc:
+            raise InputValidationError("case", str(exc).strip("'"), "required field missing") from exc
         validate_case(case)
         return case
 
@@ -270,7 +380,7 @@ def _validate_claim(claim: Claim) -> None:
         raise ValueError(f"claim {claim.claim_id}: note must be a string")
 
 
-def validate_action(action: ActionRecord) -> None:
+def validate_action(action: ActionRecord, *, emit_deprecation: bool = True) -> None:
     _require_non_empty_string("action_id", action.action_id)
     _require_non_empty_string("tool", action.tool)
     if not isinstance(action.status, str) or action.status not in VALID_ACTION_STATUS:
@@ -285,13 +395,30 @@ def validate_action(action: ActionRecord) -> None:
         _require_non_empty_string("evidence reference", reference)
     if len(set(action.evidence_refs)) != len(action.evidence_refs):
         raise ValueError(f"action {action.action_id}: duplicate evidence reference")
+    if action.result_digest is not None:
+        if not isinstance(action.result_digest, ResultDigest):
+            raise ValueError(f"action {action.action_id}: result_digest must be a ResultDigest")
+        ResultDigest.from_dict(
+            {"algorithm": action.result_digest.algorithm, "value": action.result_digest.value},
+            f"action {action.action_id}.result_digest",
+        )
     if action.result_hash is not None:
-        _require_non_empty_string("result_hash", action.result_hash)
+        _digest_from_legacy(action.result_hash, f"action {action.action_id}")
+        if emit_deprecation:
+            warnings.warn(
+                "result_hash is deprecated; use result_digest={algorithm, value}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+    if action.result_digest is not None and action.result_hash is not None:
+        raise ValueError(f"action {action.action_id}: result_digest and result_hash are mutually exclusive")
     if action.exception is not None:
         _require_non_empty_string("exception", action.exception)
-    if action.status in {"proposed", "skipped"} and action.result_hash is not None:
+    if action.status in {"proposed", "skipped"} and (
+        action.result_hash is not None or action.result_digest is not None
+    ):
         raise ValueError(
-            f"action {action.action_id}: {action.status} action cannot carry result_hash"
+            f"action {action.action_id}: {action.status} action cannot carry a result digest"
         )
 
 
@@ -317,7 +444,7 @@ def validate_case(case: ArtifactCase) -> None:
     for action in case.actions:
         if not isinstance(action, ActionRecord):
             raise ValueError("actions must contain ActionRecord objects")
-        validate_action(action)
+        validate_action(action, emit_deprecation=False)
         if action.action_id in seen_actions:
             raise ValueError(f"duplicate action_id: {action.action_id}")
         seen_actions.add(action.action_id)

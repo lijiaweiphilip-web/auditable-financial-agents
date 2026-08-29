@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from auditable_financial_agents import ActionRecord, ArtifactCase, Claim, evaluate_case
+from auditable_financial_agents import ActionRecord, ArtifactCase, Claim, ResultDigest, evaluate_case
 from auditable_financial_agents.trace import assess_trace
+
+DIGEST = ResultDigest("sha256", "0" * 64)
 
 
 class TraceTests(unittest.TestCase):
@@ -30,7 +32,7 @@ class TraceTests(unittest.TestCase):
 
     def test_documented_execution(self) -> None:
         action = ActionRecord(
-            "a", "tool", "executed", evidence_refs=("fact:1",), result_hash="abc"
+            "a", "tool", "executed", evidence_refs=("fact:1",), result_digest=DIGEST
         )
         result = assess_trace([action])
         self.assertEqual(result.undocumented_executions, 0)
@@ -98,7 +100,7 @@ class TraceTests(unittest.TestCase):
     def test_mixed_trace_counts_and_coverage(self) -> None:
         result = assess_trace(
             [
-                ActionRecord("ok", "tool", "executed", evidence_refs=("e",), result_hash="h"),
+                ActionRecord("ok", "tool", "executed", evidence_refs=("e",), result_digest=DIGEST),
                 ActionRecord("bad", "tool", "failed", exception="timeout"),
                 ActionRecord("plan", "tool", "proposed"),
             ],
@@ -113,7 +115,7 @@ class TraceTests(unittest.TestCase):
         self.assertIn("bad:failed_action", ",".join(result.issues))
 
     def test_expected_executed_count_can_mark_all_executed_records_complete(self) -> None:
-        action = ActionRecord("a", "tool", "executed", evidence_refs=("e",), result_hash="h")
+        action = ActionRecord("a", "tool", "executed", evidence_refs=("e",), result_digest=DIGEST)
         result = assess_trace([action], expected_executed_action_count=1)
         self.assertTrue(result.task_completeness)
         self.assertEqual(result.completeness_basis, "expected_executed_actions")
@@ -129,13 +131,8 @@ class TraceTests(unittest.TestCase):
             evaluate_case(ArtifactCase("bad-count", [Claim("x")], expected_action_count=1.5))
 
     def test_invalid_action_status_rejected(self) -> None:
-        case = ArtifactCase(
-            "invalid",
-            [Claim("x")],
-            [ActionRecord("a", "tool", "mystery")],
-        )
         with self.assertRaises(ValueError):
-            evaluate_case(case)
+            ActionRecord("a", "tool", "mystery")
 
     def test_duplicate_action_id_rejected(self) -> None:
         case = ArtifactCase(

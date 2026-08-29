@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 from .core import evaluate_case
-from .schema import ArtifactCase
+from .schema import ArtifactCase, InputValidationError
 
 
 def load_case(path: Path) -> ArtifactCase:
@@ -36,6 +37,16 @@ def demo(example_dir: Path) -> list[dict[str, Any]]:
     return outputs
 
 
+def validate_case_path(path: Path) -> int:
+    try:
+        load_case(path)
+    except (InputValidationError, ValueError, TypeError, OSError, json.JSONDecodeError) as exc:
+        print(f"invalid: {exc}", file=sys.stderr)
+        return 2
+    print("valid")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="financial-agent-audit",
@@ -49,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     demo_cmd = sub.add_parser("demo", help="run all JSON examples")
     demo_cmd.add_argument("--examples", type=Path, default=Path("examples"))
+
+    validate_cmd = sub.add_parser("validate-case", help="validate one JSON case without evaluating it")
+    validate_cmd.add_argument("case", type=Path)
     return parser
 
 
@@ -60,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo":
         demo(args.examples)
         return 0
+    if args.command == "validate-case":
+        return validate_case_path(args.case)
     raise AssertionError("unreachable")
 
 

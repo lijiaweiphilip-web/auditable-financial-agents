@@ -106,7 +106,10 @@ class HardeningTests(unittest.TestCase):
                         "tool": "calculator",
                         "status": "executed",
                         "evidence_refs": ["claim:c"],
-                        "result_hash": "abc",
+                        "result_digest": {
+                            "algorithm": "sha256",
+                            "value": "0" * 64,
+                        },
                     }
                 ],
             }

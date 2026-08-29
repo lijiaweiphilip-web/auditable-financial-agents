@@ -4,11 +4,11 @@
     "results/demo_results.json": "fd76811f38667991761c046abc17b25ff9e261509f2f10b3c7e41ecd76aea36a"
   },
   "examples": {
-    "examples/adverse_multiple_errors.json": "09640bd3d3d8a84256e30b89a93aa9d8329aed38f02e6eac67c8b7d7a8fd8edd",
-    "examples/clean_case.json": "d791a17f60102ee3393c1fc54f0e9c010a1116f1b1a96709df33d5bf859996de",
+    "examples/adverse_multiple_errors.json": "a8ff2f659a90c55df02083a49c21282ddc9897e25be73083d4f59c9cc4e500c7",
+    "examples/clean_case.json": "4380c46c2762fbe1b4023e3239989658d015fa5b71b90cdd33a2171fac45edf3",
     "examples/disclaimer_missing_evidence.json": "aebe98f49d99ac8ade648f64bcf44c2bb231294e9ea52b73e53ca4ae4ef0ece3",
     "examples/empty_trace_expected.json": "968f0d03b346a1257b6df70d037396872961220a4f4fc45d972de27cb0f1dde2",
-    "examples/qualified_formula_error.json": "c41686ac48b9716e8ffa4384a311ed6dfb20ecffb18aec293d6d0091cf07513a",
+    "examples/qualified_formula_error.json": "8a2041628b6d8e961081adc33843f4210c6bd22084694b8a5e993f1ae1f2bad8",
     "examples/trace_gap_case.json": "1c6863357d8a0b827b2230f760521e6604bcd04176a8cf063e175cfe502db9ce"
   },
   "kind": "synthetic_demo_snapshot"

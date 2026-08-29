@@ -18,6 +18,7 @@ financial-agent-audit = "auditable_financial_agents.cli:main"
 [project.optional-dependencies]
 dev = [
   "coverage>=7.0,<8",
+  "jsonschema>=4.21,<5",
   "ruff>=0.5,<1",
 ]
 
