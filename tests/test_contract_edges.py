@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import unittest
+from importlib import resources
 from pathlib import Path
 from unittest.mock import patch
 
@@ -125,6 +127,21 @@ class ContractEdgeTests(unittest.TestCase):
         with patch("auditable_financial_agents.cli.load_case", side_effect=ValueError("bad input")):
             self.assertEqual(validate_case_path(Path("missing.json")), 2)
         self.assertEqual(main(["validate-case", str(ROOT / "examples" / "clean_case.json")]), 0)
+
+    def test_packaged_schemas_are_available_and_match_public_copies(self) -> None:
+        names = ("artifact_case", "audit_result", "trace_assessment")
+        for name in names:
+            with self.subTest(name=name):
+                packaged = json.loads(
+                    resources.files("auditable_financial_agents.schemas")
+                    .joinpath(f"{name}.schema.json")
+                    .read_text(encoding="utf-8")
+                )
+                public = json.loads((ROOT / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))
+                self.assertEqual(packaged, public)
+
+    def test_cli_print_schema_uses_packaged_resource(self) -> None:
+        self.assertEqual(main(["print-schema", "audit-result"]), 0)
 
     def test_finite_guard_rejects_nonfinite_derived_output(self) -> None:
         # Exercise the final defense-in-depth check without changing scientific

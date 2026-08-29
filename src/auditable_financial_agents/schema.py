@@ -99,9 +99,9 @@ class Claim:
     note: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Claim:
+    def from_dict(cls, data: dict[str, Any], path: str = "claim") -> Claim:
         if not isinstance(data, dict):
-            raise InputValidationError("claim", "", "must be an object")
+            raise InputValidationError(path, "", "must be an object")
         _reject_unknown(
             data,
             {
@@ -110,12 +110,12 @@ class Claim:
                 "period_aligned", "metric_aligned", "formula_check",
                 "qualitative_severity", "note",
             },
-            "claim",
+            path,
         )
         try:
             claim = cls(**data)
         except TypeError as exc:
-            raise InputValidationError("claim", "", str(exc)) from exc
+            raise InputValidationError(path, "", str(exc)) from exc
         _validate_claim(claim)
         return claim
 
@@ -148,25 +148,25 @@ class ActionRecord:
         validate_action(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ActionRecord:
+    def from_dict(cls, data: dict[str, Any], path: str = "action") -> ActionRecord:
         if not isinstance(data, dict):
-            raise InputValidationError("action", "", "must be an object")
+            raise InputValidationError(path, "", "must be an object")
         _reject_unknown(
             data,
             {"action_id", "tool", "status", "evidence_refs", "result_digest", "result_hash", "exception"},
-            "action",
+            path,
         )
         raw_refs = data.get("evidence_refs", ())
         if isinstance(raw_refs, str) or not isinstance(raw_refs, (list, tuple)):
-            raise InputValidationError("action", "evidence_refs", "must be a list of strings")
+            raise InputValidationError(path, "evidence_refs", "must be a list of strings")
         if "result_digest" in data and "result_hash" in data:
-            raise InputValidationError("action", "result_digest", "cannot be combined with deprecated result_hash")
+            raise InputValidationError(path, "result_digest", "cannot be combined with deprecated result_hash")
         digest = None
         legacy_hash = data.get("result_hash")
         if "result_digest" in data:
-            digest = ResultDigest.from_dict(data["result_digest"], "action.result_digest")
+            digest = ResultDigest.from_dict(data["result_digest"], f"{path}.result_digest")
         elif legacy_hash is not None:
-            _digest_from_legacy(legacy_hash, "action")
+            _digest_from_legacy(legacy_hash, path)
         try:
             action = cls(
                 action_id=data["action_id"],
@@ -178,13 +178,13 @@ class ActionRecord:
                 result_digest=digest,
             )
         except KeyError as exc:
-            raise InputValidationError("action", str(exc).strip("'"), "required field missing") from exc
+            raise InputValidationError(path, str(exc).strip("'"), "required field missing") from exc
         except InputValidationError:
             raise
         except ValueError as exc:
-            raise InputValidationError("action", "", str(exc)) from exc
+            raise InputValidationError(path, "", str(exc)) from exc
         except TypeError as exc:
-            raise InputValidationError("action", "", str(exc)) from exc
+            raise InputValidationError(path, "", str(exc)) from exc
         return action
 
     def effective_digest(self) -> ResultDigest | None:
@@ -203,6 +203,7 @@ class AuditConfig:
     severe_issue_threshold: float = 1.50
     review_on_unknown_formula: bool = True
     review_on_invalid_evidence: bool = True
+    max_critical_matters: int = 5
 
     def __post_init__(self) -> None:
         if self.scope_limitation_threshold is not None:
@@ -219,6 +220,12 @@ class AuditConfig:
         _require_finite_number("severe_issue_threshold", self.severe_issue_threshold)
         _require_bool("review_on_unknown_formula", self.review_on_unknown_formula)
         _require_bool("review_on_invalid_evidence", self.review_on_invalid_evidence)
+        if (
+            isinstance(self.max_critical_matters, bool)
+            or not isinstance(self.max_critical_matters, int)
+            or self.max_critical_matters < 1
+        ):
+            raise ValueError("max_critical_matters must be a positive integer")
         for name, value in (
             ("evidence_threshold", self.evidence_threshold),
             ("pervasiveness_threshold", self.pervasiveness_threshold),
@@ -268,8 +275,14 @@ class ArtifactCase:
         try:
             case = cls(
                 case_id=data["case_id"],
-                claims=[Claim.from_dict(item) for item in raw_claims],
-                actions=[ActionRecord.from_dict(item) for item in raw_actions],
+                claims=[
+                    Claim.from_dict(item, f"case.claims[{index}]")
+                    for index, item in enumerate(raw_claims)
+                ],
+                actions=[
+                    ActionRecord.from_dict(item, f"case.actions[{index}]")
+                    for index, item in enumerate(raw_actions)
+                ],
                 metadata=dict(raw_metadata),
                 expected_action_count=data.get("expected_action_count"),
                 expected_executed_action_count=data.get("expected_executed_action_count"),
@@ -326,9 +339,18 @@ class AuditResult:
     basis: list[str]
     schema_version: str = "2.0"
     informational_matters: list[str] = field(default_factory=list)
+    critical_matters_total: int = 0
+    critical_matters_truncated: bool = False
+    critical_matters_limit: int = 5
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        # ``asdict`` preserves tuple fields, while the public JSON contract
+        # requires arrays.  Normalize these leaves here so direct callers and
+        # CLI output validate identically against the distributed schema.
+        for assessment in payload["claim_assessments"]:
+            assessment["reasons"] = list(assessment["reasons"])
+        payload["trace_assessment"]["issues"] = list(payload["trace_assessment"]["issues"])
         return payload
 
 

@@ -31,3 +31,6 @@ select = ["E", "F", "I", "UP"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+auditable_financial_agents = ["schemas/*.json"]

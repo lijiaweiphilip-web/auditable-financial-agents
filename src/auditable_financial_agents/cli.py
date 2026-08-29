@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,25 @@ def validate_case_path(path: Path) -> int:
     return 0
 
 
+def print_schema(name: str) -> int:
+    names = {
+        "artifact-case": "artifact_case.schema.json",
+        "audit-result": "audit_result.schema.json",
+        "trace-assessment": "trace_assessment.schema.json",
+    }
+    filename = names.get(name)
+    if filename is None:
+        print(f"invalid: unknown schema {name!r}", file=sys.stderr)
+        return 2
+    try:
+        schema_path = resources.files("auditable_financial_agents.schemas").joinpath(filename)
+        print(schema_path.read_text(encoding="utf-8"), end="")
+    except (FileNotFoundError, ModuleNotFoundError, OSError) as exc:
+        print(f"invalid: packaged schema unavailable: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="financial-agent-audit",
@@ -63,6 +83,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_cmd = sub.add_parser("validate-case", help="validate one JSON case without evaluating it")
     validate_cmd.add_argument("case", type=Path)
+    schema_cmd = sub.add_parser("print-schema", help="print a packaged JSON Schema")
+    schema_cmd.add_argument("name", choices=("artifact-case", "audit-result", "trace-assessment"))
     return parser
 
 
@@ -76,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "validate-case":
         return validate_case_path(args.case)
+    if args.command == "print-schema":
+        return print_schema(args.name)
     raise AssertionError("unreachable")
 
 

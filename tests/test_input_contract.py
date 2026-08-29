@@ -275,6 +275,81 @@ class StrictInputContractTests(unittest.TestCase):
         self.assertTrue(result.human_review_required)
         self.assertIn("clean opinion with unresolved human-review matters", result.basis)
 
+    def test_material_unknown_formula_stays_critical_after_opt_out(self) -> None:
+        result = evaluate_case(
+            ArtifactCase("material-unknown", [Claim("x", formula_check="unknown", qualitative_severity=1.1)]),
+            AuditConfig(review_on_unknown_formula=False),
+        )
+        self.assertEqual(result.opinion, "Adverse")
+        self.assertIn("x", result.critical_matters)
+        self.assertNotIn("x", result.informational_matters)
+        self.assertTrue(result.human_review_required)
+
+    def test_material_invalid_evidence_stays_critical_after_opt_out(self) -> None:
+        result = evaluate_case(
+            ArtifactCase("material-invalid", [Claim("x", provenance_valid=False, qualitative_severity=1.1)]),
+            AuditConfig(review_on_invalid_evidence=False),
+        )
+        self.assertIn("x", result.critical_matters)
+        self.assertNotIn("x", result.informational_matters)
+        self.assertTrue(result.human_review_required)
+
+    def test_critical_and_informational_matters_are_disjoint(self) -> None:
+        result = evaluate_case(
+            ArtifactCase(
+                "mixed-matters",
+                [
+                    Claim("unknown", formula_check="unknown"),
+                    Claim("material", formula_check="unknown", qualitative_severity=1.1),
+                    Claim("invalid", provenance_valid=False),
+                ],
+            ),
+            AuditConfig(review_on_unknown_formula=False, review_on_invalid_evidence=False),
+        )
+        self.assertTrue(set(result.critical_matters).isdisjoint(result.informational_matters))
+
+    def test_critical_truncation_is_explicit(self) -> None:
+        result = evaluate_case(
+            ArtifactCase("many-critical", [Claim(str(index), formula_check="unknown") for index in range(6)]),
+            AuditConfig(max_critical_matters=3),
+        )
+        self.assertEqual(result.critical_matters_total, 6)
+        self.assertEqual(result.critical_matters_limit, 3)
+        self.assertTrue(result.critical_matters_truncated)
+        self.assertEqual(len(result.critical_matters), 3)
+
+    def test_critical_limit_must_be_positive_integer(self) -> None:
+        for value in (0, -1, True, 1.5):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                evaluate_case(ArtifactCase("limit", [Claim("x")]), AuditConfig(max_critical_matters=value))  # type: ignore[arg-type]
+
+    def test_nested_input_errors_include_item_index(self) -> None:
+        with self.assertRaises(InputValidationError) as context:
+            ArtifactCase.from_dict(
+                {
+                    "case_id": "nested",
+                    "claims": [{"claim_id": "x"}, {"claim_id": "y", "unexpected": True}],
+                }
+            )
+        self.assertIn("case.claims[1].unexpected", str(context.exception))
+
+        with self.assertRaises(InputValidationError) as context:
+            ArtifactCase.from_dict(
+                {
+                    "case_id": "nested",
+                    "claims": [{"claim_id": "x"}],
+                    "actions": [
+                        {
+                            "action_id": "a",
+                            "tool": "t",
+                            "status": "executed",
+                            "result_digest": {"algorithm": "sha256", "value": "bad"},
+                        }
+                    ],
+                }
+            )
+        self.assertIn("case.actions[0].result_digest.value", str(context.exception))
+
     def test_weight_scaling_preserves_aggregate_opinion_and_metrics(self) -> None:
         claims = [Claim("a", weight=1.0), Claim("b", weight=2.0, qualitative_severity=0.8)]
         scaled = [Claim("a", weight=10.0), Claim("b", weight=20.0, qualitative_severity=0.8)]

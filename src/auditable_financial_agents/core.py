@@ -153,42 +153,40 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         case.expected_action_count,
         case.expected_executed_action_count,
     )
-    informational_claim_ids = {
-        claim.claim_id
-        for claim in case.claims
-        if claim.formula_check == "unknown" and not config.review_on_unknown_formula
-    }
-    invalid_evidence_ids = {
-        assessment.claim_id
-        for assessment in assessments
-        if not assessment.evidence_valid
-    }
+    critical_candidates: list[ClaimAssessment] = []
+    informational_ids: set[str] = set()
+    for claim, assessment in zip(case.claims, assessments, strict=True):
+        unknown_formula = claim.formula_check == "unknown"
+        invalid_evidence = not assessment.evidence_valid
+        unknown_opt_out = unknown_formula and not config.review_on_unknown_formula
+        invalid_opt_out = invalid_evidence and not config.review_on_invalid_evidence
+
+        # Materiality is claim-level.  An explicit opt-out can downgrade only
+        # a non-material uncertainty; it can never hide a material claim from
+        # critical matters or make the review basis contradictory.
+        if assessment.material:
+            critical_candidates.append(assessment)
+        elif (unknown_formula and config.review_on_unknown_formula) or (
+            invalid_evidence and config.review_on_invalid_evidence
+        ):
+            critical_candidates.append(assessment)
+        elif (unknown_opt_out or invalid_opt_out) and assessment.reasons:
+            informational_ids.add(assessment.claim_id)
+        elif assessment.reasons:
+            critical_candidates.append(assessment)
+
     critical = sorted(
-        (
-            assessment for assessment in assessments
-            if assessment.claim_id not in informational_claim_ids
-            and (
-                config.review_on_invalid_evidence
-                or assessment.material
-                or assessment.claim_id not in invalid_evidence_ids
-            )
-            and (
-                assessment.material
-                or not assessment.evidence_valid
-                or assessment.reasons
-            )
-        ),
+        critical_candidates,
         key=lambda item: (-item.weighted_priority, item.claim_id),
     )
-    critical_matters = [item.claim_id for item in critical[:5]]
-    informational_matters = sorted(
-        informational_claim_ids
-        | (
-            invalid_evidence_ids
-            if not config.review_on_invalid_evidence
-            else set()
-        )
-    )
+    critical_matters_total = len(critical)
+    critical_matters = [
+        item.claim_id for item in critical[: config.max_critical_matters]
+    ]
+    informational_matters = sorted(informational_ids - set(critical_matters))
+    invalid_evidence_ids = {
+        assessment.claim_id for assessment in assessments if not assessment.evidence_valid
+    }
 
     severe_claim = any(
         assessment.effective_severity >= config.severe_issue_threshold
@@ -204,6 +202,7 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         or bool(trace.issues)
         or unknown_formula_review
         or invalid_evidence_review
+        or critical_matters_total > 0
     )
 
     coverage_text = (
@@ -259,6 +258,9 @@ def evaluate_case(case: ArtifactCase, config: AuditConfig | None = None) -> Audi
         basis=basis,
         schema_version="2.0",
         informational_matters=informational_matters,
+        critical_matters_total=critical_matters_total,
+        critical_matters_truncated=critical_matters_total > len(critical_matters),
+        critical_matters_limit=config.max_critical_matters,
     )
 
 
