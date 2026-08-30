@@ -1,14 +1,15 @@
 {
   "artifacts": {
-    "results/DEMO_RESULTS.md": "02d1e558fa4fc84420a352ce82362d0aded0f17cfb9345a7f71af1807ce01368",
-    "results/demo_results.json": "f0a8e40b3c3156f8289ec31adfadaf3cdb8f188fe9766c4ce4da85bc46285dec"
+    "results/DEMO_RESULTS.md": "2ab977b6055e385acb4c97a80d5c3969a07208f41d344557787cae0be7e92b05",
+    "results/demo_results.json": "fd76811f38667991761c046abc17b25ff9e261509f2f10b3c7e41ecd76aea36a"
   },
   "examples": {
-    "examples/adverse_multiple_errors.json": "fa60779d77907f097086e73bf0c1905b98f74d0010bca5c1fbfa7dd9edc02a63",
-    "examples/clean_case.json": "3e4dd28ecfc1090063b6123766f458f5b8e558c48850605b2251e09e287c032d",
-    "examples/disclaimer_missing_evidence.json": "fc8b1caad17740e50e4af18eed4400a4fe9f07c4582e420ac27f4fbba3aca206",
-    "examples/qualified_formula_error.json": "e5ac3af83516179a2746746dcee405f19184c57a3bdff457b78c75e7812eb9dd",
-    "examples/trace_gap_case.json": "07612acb121f7a4911b2a3d70b82a8248722b8b677e3f7ba49e6d6f71bec0997"
+    "examples/adverse_multiple_errors.json": "a8ff2f659a90c55df02083a49c21282ddc9897e25be73083d4f59c9cc4e500c7",
+    "examples/clean_case.json": "4380c46c2762fbe1b4023e3239989658d015fa5b71b90cdd33a2171fac45edf3",
+    "examples/disclaimer_missing_evidence.json": "aebe98f49d99ac8ade648f64bcf44c2bb231294e9ea52b73e53ca4ae4ef0ece3",
+    "examples/empty_trace_expected.json": "968f0d03b346a1257b6df70d037396872961220a4f4fc45d972de27cb0f1dde2",
+    "examples/qualified_formula_error.json": "8a2041628b6d8e961081adc33843f4210c6bd22084694b8a5e993f1ae1f2bad8",
+    "examples/trace_gap_case.json": "1c6863357d8a0b827b2230f760521e6604bcd04176a8cf063e175cfe502db9ce"
   },
   "kind": "synthetic_demo_snapshot"
 }

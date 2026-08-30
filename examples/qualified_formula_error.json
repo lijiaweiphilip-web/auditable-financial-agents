@@ -26,7 +26,7 @@
       "tool": "calculator",
       "status": "executed",
       "evidence_refs": ["fact:operating_income", "fact:revenue_2025"],
-      "result_hash": "demo-sha256-002"
+      "result_digest": {"algorithm": "sha256", "value": "0000000000000000000000000000000000000000000000000000000000000002"}
     }
   ]
 }

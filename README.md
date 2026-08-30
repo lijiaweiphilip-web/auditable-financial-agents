@@ -33,9 +33,10 @@ python -m venv .venv
 # POSIX:   source .venv/bin/activate
 python -m pip install -e .[dev]
 financial-agent-audit demo --examples examples
+financial-agent-audit validate-case examples/clean_case.json
 python -m unittest discover -s tests -v
-coverage run -m unittest discover -s tests -v
-coverage report --fail-under=85
+coverage run --source=src/auditable_financial_agents -m unittest discover -s tests -v
+coverage report --fail-under=97
 ```
 
 Evaluate one synthetic case and save its certificate:
@@ -55,16 +56,25 @@ python scripts/build_demo_snapshot.py
 
 - Clean / Qualified / Adverse / Disclaimer research labels;
 - claim-level provenance and entity/period/metric alignment;
-- numeric and qualitative materiality, formula-check failure, and pervasiveness;
+- numeric and qualitative materiality, formula-check failure, normalized
+  pervasiveness, and claim-level severity decisions;
 - evidence sufficiency, critical-matter prioritization, and false-clean helper;
-- optional action-trace checks for failed or incompletely documented executions;
+- optional action-trace checks for failed, skipped, expected-but-missing, or
+  incompletely documented executions;
+- schema-v2 trace counts with nullable executed-action documentation coverage;
 - deterministic synthetic examples, tests, coverage, CI and hash manifest.
+
+The current branch is a `v0.2.0` behavior-change candidate, not a published
+release. Its input contract rejects partial numeric claims, non-boolean flags,
+and non-finite values; unknown formula checks are reviewable by default.
 
 The action-trace code is a **prospective research extension**, not an HCOMP
 2026 accepted-paper result. See [`docs/PAPER_MAPPING.md`](docs/PAPER_MAPPING.md)
 and [`docs/TRACE_EXTENSION.md`](docs/TRACE_EXTENSION.md).
 
 For a compact paper-to-code view, see [`docs/RESEARCH_MAP.md`](docs/RESEARCH_MAP.md).
+The formal prototype rules are summarized in
+[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md).
 
 ## Synthetic result boundary
 

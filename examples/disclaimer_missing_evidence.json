@@ -5,7 +5,7 @@
     {
       "claim_id": "segment_growth",
       "weight": 1.0,
-      "generated_value": 0.18,
+      "generated_value": null,
       "source_value": null,
       "materiality_threshold": null,
       "provenance_valid": false,

@@ -14,6 +14,10 @@ DOI: https://doi.org/10.1145/3834580.3838756
 - Material-issue pervasiveness.
 - Critical-matter prioritization.
 - Batch false-clean-rate helper.
+- Normalized-weight aggregation and claim-level effective-severity decision
+  invariants in the public prototype.
+- Executed-action documentation coverage and explicit expected-action trace
+  semantics as a prospective extension.
 
 ## Simplified relative to the paper
 

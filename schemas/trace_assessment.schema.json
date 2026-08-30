@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Auditable financial-agent trace assessment v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["total_actions", "executed_actions", "failed_actions", "undocumented_executions", "trace_completeness", "issues", "task_completeness", "completeness_basis", "schema_version", "executed_action_documentation_coverage", "observed_action_records", "terminal_action_records", "successful_executions", "expected_action_count", "expected_executed_action_count"],
+  "properties": {
+    "total_actions": {"type": "integer", "minimum": 0},
+    "executed_actions": {"type": "integer", "minimum": 0},
+    "failed_actions": {"type": "integer", "minimum": 0},
+    "undocumented_executions": {"type": "integer", "minimum": 0},
+    "trace_completeness": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "issues": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "task_completeness": {"type": ["boolean", "null"]},
+    "completeness_basis": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "2.0"},
+    "executed_action_documentation_coverage": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "observed_action_records": {"type": "integer", "minimum": 0},
+    "terminal_action_records": {"type": "integer", "minimum": 0},
+    "successful_executions": {"type": "integer", "minimum": 0},
+    "expected_action_count": {"type": ["integer", "null"], "minimum": 0},
+    "expected_executed_action_count": {"type": ["integer", "null"], "minimum": 0}
+  }
+}

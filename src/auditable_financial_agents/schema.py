@@ -1,10 +1,86 @@
 from __future__ import annotations
 
+import math
+import warnings
 from dataclasses import asdict, dataclass, field
+from numbers import Real
 from typing import Any
 
 VALID_OPINIONS = {"Clean", "Qualified", "Adverse", "Disclaimer"}
 VALID_ACTION_STATUS = {"proposed", "executed", "failed", "skipped"}
+_DIGEST_RE = r"^sha256:[0-9a-f]{64}$"
+
+
+class InputValidationError(ValueError):
+    """A path-aware, user-facing input contract error."""
+
+    def __init__(self, path: str, field: str, reason: str) -> None:
+        self.path = path
+        self.field = field
+        self.reason = reason
+        super().__init__(f"{path}.{field}: {reason}")
+
+
+def _is_real_number(value: Any) -> bool:
+    """Return true for finite-number candidates, excluding Python bool."""
+
+    return isinstance(value, Real) and not isinstance(value, bool)
+
+
+def _require_non_empty_string(name: str, value: Any) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+
+
+def _require_bool(name: str, value: Any) -> None:
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean")
+
+
+def _require_finite_number(name: str, value: Any) -> None:
+    if not _is_real_number(value) or not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite real number")
+
+
+def _require_optional_finite_number(name: str, value: Any) -> None:
+    if value is not None:
+        _require_finite_number(name, value)
+
+
+def _reject_unknown(data: dict[str, Any], allowed: set[str], path: str) -> None:
+    unknown = sorted(set(data) - allowed)
+    if unknown:
+        raise InputValidationError(path, unknown[0], "unknown field")
+
+
+def _digest_from_legacy(value: str, path: str) -> dict[str, str]:
+    import re
+
+    if not isinstance(value, str) or not re.fullmatch(_DIGEST_RE, value):
+        raise InputValidationError(path, "result_hash", "expected sha256:<64 lowercase hex>")
+    return {"algorithm": "sha256", "value": value.split(":", 1)[1]}
+
+
+@dataclass(frozen=True)
+class ResultDigest:
+    algorithm: str
+    value: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], path: str = "result_digest") -> ResultDigest:
+        if not isinstance(data, dict):
+            raise InputValidationError(path, "", "must be an object")
+        _reject_unknown(data, {"algorithm", "value"}, path)
+        if data.get("algorithm") != "sha256":
+            raise InputValidationError(path, "algorithm", "must be sha256")
+        value = data.get("value")
+        if not isinstance(value, str):
+            raise InputValidationError(path, "value", "must be a string")
+        import re
+
+        if not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise InputValidationError(path, "value", "must be 64 lowercase hexadecimal characters")
+        return cls(algorithm="sha256", value=value)
 
 
 @dataclass(frozen=True)
@@ -23,8 +99,25 @@ class Claim:
     note: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Claim:
-        return cls(**data)
+    def from_dict(cls, data: dict[str, Any], path: str = "claim") -> Claim:
+        if not isinstance(data, dict):
+            raise InputValidationError(path, "", "must be an object")
+        _reject_unknown(
+            data,
+            {
+                "claim_id", "weight", "generated_value", "source_value",
+                "materiality_threshold", "provenance_valid", "entity_aligned",
+                "period_aligned", "metric_aligned", "formula_check",
+                "qualitative_severity", "note",
+            },
+            path,
+        )
+        try:
+            claim = cls(**data)
+        except TypeError as exc:
+            raise InputValidationError(path, "", str(exc)) from exc
+        _validate_claim(claim)
+        return claim
 
     def evidence_valid(self) -> bool:
         return all(
@@ -45,26 +138,108 @@ class ActionRecord:
     evidence_refs: tuple[str, ...] = ()
     result_hash: str | None = None
     exception: str | None = None
+    # Added after the legacy fields so positional callers retain the v0.1 API.
+    result_digest: ResultDigest | None = None
+
+    def __post_init__(self) -> None:
+        # Direct construction is part of the public Python API.  Validate the
+        # shape here as well as in ArtifactCase.from_dict/evaluate_case, while
+        # keeping deprecation warnings to a single emission at construction.
+        validate_action(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ActionRecord:
-        evidence_refs = tuple(data.get("evidence_refs", ()))
-        return cls(
-            action_id=data["action_id"],
-            tool=data["tool"],
-            status=data["status"],
-            evidence_refs=evidence_refs,
-            result_hash=data.get("result_hash"),
-            exception=data.get("exception"),
+    def from_dict(cls, data: dict[str, Any], path: str = "action") -> ActionRecord:
+        if not isinstance(data, dict):
+            raise InputValidationError(path, "", "must be an object")
+        _reject_unknown(
+            data,
+            {"action_id", "tool", "status", "evidence_refs", "result_digest", "result_hash", "exception"},
+            path,
         )
+        raw_refs = data.get("evidence_refs", ())
+        if isinstance(raw_refs, str) or not isinstance(raw_refs, (list, tuple)):
+            raise InputValidationError(path, "evidence_refs", "must be a list of strings")
+        if "result_digest" in data and "result_hash" in data:
+            raise InputValidationError(path, "result_digest", "cannot be combined with deprecated result_hash")
+        digest = None
+        legacy_hash = data.get("result_hash")
+        if "result_digest" in data:
+            digest = ResultDigest.from_dict(data["result_digest"], f"{path}.result_digest")
+        elif legacy_hash is not None:
+            _digest_from_legacy(legacy_hash, path)
+        try:
+            action = cls(
+                action_id=data["action_id"],
+                tool=data["tool"],
+                status=data["status"],
+                evidence_refs=tuple(raw_refs),
+                result_hash=legacy_hash,
+                exception=data.get("exception"),
+                result_digest=digest,
+            )
+        except KeyError as exc:
+            raise InputValidationError(path, str(exc).strip("'"), "required field missing") from exc
+        except InputValidationError:
+            raise
+        except ValueError as exc:
+            raise InputValidationError(path, "", str(exc)) from exc
+        except TypeError as exc:
+            raise InputValidationError(path, "", str(exc)) from exc
+        return action
+
+    def effective_digest(self) -> ResultDigest | None:
+        if self.result_digest is not None:
+            return self.result_digest
+        if self.result_hash is not None:
+            return ResultDigest.from_dict(_digest_from_legacy(self.result_hash, "action"))
+        return None
 
 
 @dataclass(frozen=True)
 class AuditConfig:
     evidence_threshold: float = 0.85
     pervasiveness_threshold: float = 0.50
-    scope_limitation_threshold: float = 0.15
+    scope_limitation_threshold: float | None = None
     severe_issue_threshold: float = 1.50
+    review_on_unknown_formula: bool = True
+    review_on_invalid_evidence: bool = True
+    max_critical_matters: int = 5
+
+    def __post_init__(self) -> None:
+        if self.scope_limitation_threshold is not None:
+            warnings.warn(
+                "scope_limitation_threshold is deprecated and no longer affects opinion; "
+                "use evidence_threshold instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+    def validate(self) -> None:
+        _require_finite_number("evidence_threshold", self.evidence_threshold)
+        _require_finite_number("pervasiveness_threshold", self.pervasiveness_threshold)
+        _require_finite_number("severe_issue_threshold", self.severe_issue_threshold)
+        _require_bool("review_on_unknown_formula", self.review_on_unknown_formula)
+        _require_bool("review_on_invalid_evidence", self.review_on_invalid_evidence)
+        if (
+            isinstance(self.max_critical_matters, bool)
+            or not isinstance(self.max_critical_matters, int)
+            or self.max_critical_matters < 1
+        ):
+            raise ValueError("max_critical_matters must be a positive integer")
+        for name, value in (
+            ("evidence_threshold", self.evidence_threshold),
+            ("pervasiveness_threshold", self.pervasiveness_threshold),
+        ):
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be within [0, 1]")
+        if self.scope_limitation_threshold is not None:
+            _require_finite_number(
+                "scope_limitation_threshold", self.scope_limitation_threshold
+            )
+            if not 0.0 <= self.scope_limitation_threshold <= 1.0:
+                raise ValueError("scope_limitation_threshold must be within [0, 1]")
+        if self.severe_issue_threshold < 0.0:
+            raise ValueError("severe_issue_threshold must be non-negative")
 
 
 @dataclass
@@ -73,15 +248,49 @@ class ArtifactCase:
     claims: list[Claim]
     actions: list[ActionRecord] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    expected_action_count: int | None = None
+    expected_executed_action_count: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ArtifactCase:
-        return cls(
-            case_id=data["case_id"],
-            claims=[Claim.from_dict(item) for item in data.get("claims", [])],
-            actions=[ActionRecord.from_dict(item) for item in data.get("actions", [])],
-            metadata=dict(data.get("metadata", {})),
+        if not isinstance(data, dict):
+            raise InputValidationError("case", "", "must be an object")
+        _reject_unknown(
+            data,
+            {
+                "case_id", "claims", "actions", "metadata",
+                "expected_action_count", "expected_executed_action_count",
+            },
+            "case",
         )
+        raw_claims = data.get("claims", [])
+        raw_actions = data.get("actions", [])
+        if not isinstance(raw_claims, list):
+            raise InputValidationError("case", "claims", "must be a list")
+        if not isinstance(raw_actions, list):
+            raise InputValidationError("case", "actions", "must be a list")
+        raw_metadata = data.get("metadata", {})
+        if not isinstance(raw_metadata, dict):
+            raise InputValidationError("case", "metadata", "must be an object")
+        try:
+            case = cls(
+                case_id=data["case_id"],
+                claims=[
+                    Claim.from_dict(item, f"case.claims[{index}]")
+                    for index, item in enumerate(raw_claims)
+                ],
+                actions=[
+                    ActionRecord.from_dict(item, f"case.actions[{index}]")
+                    for index, item in enumerate(raw_actions)
+                ],
+                metadata=dict(raw_metadata),
+                expected_action_count=data.get("expected_action_count"),
+                expected_executed_action_count=data.get("expected_executed_action_count"),
+            )
+        except KeyError as exc:
+            raise InputValidationError("case", str(exc).strip("'"), "required field missing") from exc
+        validate_case(case)
+        return case
 
 
 @dataclass(frozen=True)
@@ -101,8 +310,17 @@ class TraceAssessment:
     executed_actions: int
     failed_actions: int
     undocumented_executions: int
-    trace_completeness: float
+    trace_completeness: float | None
     issues: tuple[str, ...]
+    task_completeness: bool | None = None
+    completeness_basis: str = "executed_action_documentation_coverage"
+    schema_version: str = "2.0"
+    executed_action_documentation_coverage: float | None = None
+    observed_action_records: int = 0
+    terminal_action_records: int = 0
+    successful_executions: int = 0
+    expected_action_count: int | None = None
+    expected_executed_action_count: int | None = None
 
 
 @dataclass
@@ -112,48 +330,157 @@ class AuditResult:
     evidence_sufficiency: float
     scope_limitation: float
     max_weighted_severity: float
+    max_effective_severity: float
     pervasiveness: float
     human_review_required: bool
     critical_matters: list[str]
     claim_assessments: list[ClaimAssessment]
     trace_assessment: TraceAssessment
     basis: list[str]
+    schema_version: str = "2.0"
+    informational_matters: list[str] = field(default_factory=list)
+    critical_matters_total: int = 0
+    critical_matters_truncated: bool = False
+    critical_matters_limit: int = 5
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        # ``asdict`` preserves tuple fields, while the public JSON contract
+        # requires arrays.  Normalize these leaves here so direct callers and
+        # CLI output validate identically against the distributed schema.
+        for assessment in payload["claim_assessments"]:
+            assessment["reasons"] = list(assessment["reasons"])
+        payload["trace_assessment"]["issues"] = list(payload["trace_assessment"]["issues"])
         return payload
 
 
+def _validate_claim(claim: Claim) -> None:
+    _require_non_empty_string("claim_id", claim.claim_id)
+    _require_finite_number("claim weight", claim.weight)
+    if claim.weight <= 0:
+        raise ValueError(f"claim {claim.claim_id}: weight must be positive")
+    numeric_values = (
+        claim.generated_value,
+        claim.source_value,
+        claim.materiality_threshold,
+    )
+    numeric_present = [value is not None for value in numeric_values]
+    if any(numeric_present) and not all(numeric_present):
+        raise ValueError(
+            f"claim {claim.claim_id}: generated_value, source_value and "
+            "materiality_threshold must be supplied together"
+        )
+    for field_name, field_value in (
+        ("generated_value", claim.generated_value),
+        ("source_value", claim.source_value),
+        ("materiality_threshold", claim.materiality_threshold),
+        ("qualitative_severity", claim.qualitative_severity),
+    ):
+        _require_optional_finite_number(
+            f"claim {claim.claim_id}: {field_name}", field_value
+        )
+    for field_name, field_value in (
+        ("provenance_valid", claim.provenance_valid),
+        ("entity_aligned", claim.entity_aligned),
+        ("period_aligned", claim.period_aligned),
+        ("metric_aligned", claim.metric_aligned),
+    ):
+        _require_bool(f"claim {claim.claim_id}: {field_name}", field_value)
+    if claim.materiality_threshold is not None and claim.materiality_threshold <= 0:
+        raise ValueError(
+            f"claim {claim.claim_id}: materiality_threshold must be positive"
+        )
+    if claim.formula_check not in {"pass", "fail", "unknown"}:
+        raise ValueError(
+            f"claim {claim.claim_id}: formula_check must be pass/fail/unknown"
+        )
+    if claim.qualitative_severity < 0:
+        raise ValueError(
+            f"claim {claim.claim_id}: qualitative_severity must be non-negative"
+        )
+    if not isinstance(claim.note, str):
+        raise ValueError(f"claim {claim.claim_id}: note must be a string")
+
+
+def validate_action(action: ActionRecord, *, emit_deprecation: bool = True) -> None:
+    _require_non_empty_string("action_id", action.action_id)
+    _require_non_empty_string("tool", action.tool)
+    if not isinstance(action.status, str) or action.status not in VALID_ACTION_STATUS:
+        raise ValueError(f"action {action.action_id}: invalid status {action.status!r}")
+    if isinstance(action.evidence_refs, str) or not isinstance(
+        action.evidence_refs, (list, tuple)
+    ):
+        raise ValueError(
+            f"action {action.action_id}: evidence_refs must be a list or tuple"
+        )
+    for reference in action.evidence_refs:
+        _require_non_empty_string("evidence reference", reference)
+    if len(set(action.evidence_refs)) != len(action.evidence_refs):
+        raise ValueError(f"action {action.action_id}: duplicate evidence reference")
+    if action.result_digest is not None:
+        if not isinstance(action.result_digest, ResultDigest):
+            raise ValueError(f"action {action.action_id}: result_digest must be a ResultDigest")
+        ResultDigest.from_dict(
+            {"algorithm": action.result_digest.algorithm, "value": action.result_digest.value},
+            f"action {action.action_id}.result_digest",
+        )
+    if action.result_hash is not None:
+        _digest_from_legacy(action.result_hash, f"action {action.action_id}")
+        if emit_deprecation:
+            warnings.warn(
+                "result_hash is deprecated; use result_digest={algorithm, value}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+    if action.result_digest is not None and action.result_hash is not None:
+        raise ValueError(f"action {action.action_id}: result_digest and result_hash are mutually exclusive")
+    if action.exception is not None:
+        _require_non_empty_string("exception", action.exception)
+    if action.status in {"proposed", "skipped"} and (
+        action.result_hash is not None or action.result_digest is not None
+    ):
+        raise ValueError(
+            f"action {action.action_id}: {action.status} action cannot carry a result digest"
+        )
+
+
 def validate_case(case: ArtifactCase) -> None:
-    if not case.case_id.strip():
-        raise ValueError("case_id must be non-empty")
+    _require_non_empty_string("case_id", case.case_id)
     if not case.claims:
         raise ValueError("at least one claim is required")
+    if not isinstance(case.claims, list):
+        raise ValueError("claims must be a list")
+    if not isinstance(case.actions, list):
+        raise ValueError("actions must be a list")
+    if not isinstance(case.metadata, dict):
+        raise ValueError("metadata must be an object")
     seen: set[str] = set()
     for claim in case.claims:
+        if not isinstance(claim, Claim):
+            raise ValueError("claims must contain Claim objects")
         if claim.claim_id in seen:
             raise ValueError(f"duplicate claim_id: {claim.claim_id}")
         seen.add(claim.claim_id)
-        if claim.weight <= 0:
-            raise ValueError(f"claim {claim.claim_id}: weight must be positive")
-        if claim.materiality_threshold is not None and claim.materiality_threshold <= 0:
-            raise ValueError(
-                f"claim {claim.claim_id}: materiality_threshold must be positive"
-            )
-        if claim.formula_check not in {"pass", "fail", "unknown"}:
-            raise ValueError(
-                f"claim {claim.claim_id}: formula_check must be pass/fail/unknown"
-            )
-        if claim.qualitative_severity < 0:
-            raise ValueError(
-                f"claim {claim.claim_id}: qualitative_severity must be non-negative"
-            )
+        _validate_claim(claim)
     seen_actions: set[str] = set()
     for action in case.actions:
+        if not isinstance(action, ActionRecord):
+            raise ValueError("actions must contain ActionRecord objects")
+        validate_action(action, emit_deprecation=False)
         if action.action_id in seen_actions:
             raise ValueError(f"duplicate action_id: {action.action_id}")
         seen_actions.add(action.action_id)
-        if action.status not in VALID_ACTION_STATUS:
-            raise ValueError(
-                f"action {action.action_id}: invalid status {action.status!r}"
-            )
+    for name, count in (
+        ("expected_action_count", case.expected_action_count),
+        ("expected_executed_action_count", case.expected_executed_action_count),
+    ):
+        if count is not None and (isinstance(count, bool) or not isinstance(count, int) or count < 0):
+            raise ValueError(f"{name} must be a non-negative integer when provided")
+    if (
+        case.expected_action_count is not None
+        and case.expected_executed_action_count is not None
+        and case.expected_executed_action_count > case.expected_action_count
+    ):
+        raise ValueError(
+            "expected_executed_action_count cannot exceed expected_action_count"
+        )

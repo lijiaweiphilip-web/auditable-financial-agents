@@ -25,7 +25,7 @@
       "tool": "calculator",
       "status": "executed",
       "evidence_refs": ["fact:balance_sheet"],
-      "result_hash": "demo-sha256-003"
+      "result_digest": {"algorithm": "sha256", "value": "0000000000000000000000000000000000000000000000000000000000000003"}
     }
   ]
 }
