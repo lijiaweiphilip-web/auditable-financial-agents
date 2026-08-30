@@ -1,8 +1,7 @@
-# Migration guide: v0.1 to the v0.2 candidate
+# Migration guide: v0.1 to the v0.2 release
 
-This branch prepares a future `v0.2.0` behavior change. The candidate package
-metadata is set to `0.2.0` for clean-install testing, but it is not a release
-until the behavior-change gate is approved.
+The `v0.2.0` release introduces a behavior and schema change. Consumers should
+read the schema version before relying on the new trace fields.
 
 ## Added
 
