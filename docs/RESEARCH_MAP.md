@@ -17,7 +17,7 @@ The action-trace path is a **prospective extension**, not an HCOMP 2026
 accepted-paper result. See [`TRACE_EXTENSION.md`](TRACE_EXTENSION.md) and
 [`NON_CLAIMS.md`](NON_CLAIMS.md) for boundaries.
 
-The v0.2 candidate treats `scope_limitation_threshold` as a deprecated
+The v0.2 release treats `scope_limitation_threshold` as a deprecated
 compatibility input, keeps `evidence_threshold` as the sole evidence decision
 threshold, and defaults unknown formula checks to human review. These are
 prototype behavior semantics, not claims about the accepted paper's complete

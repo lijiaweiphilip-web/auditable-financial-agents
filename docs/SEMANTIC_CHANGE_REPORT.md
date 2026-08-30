@@ -1,9 +1,8 @@
 # Semantic change report
 
-## Candidate status
+## Release status
 
-This is an unpublished v0.2.0 behavior-change candidate. No release has been
-created.
+This report describes the published v0.2.0 behavior change.
 
 ## Behavior changes
 
@@ -34,5 +33,4 @@ The old `max_weighted_severity` field remains in serialized results as a
 deprecated diagnostic. New trace fields have defaults so existing callers can
 continue to construct cases and consume the legacy coverage field.
 
-The package metadata is `0.2.0` on this review branch for clean-install and
-migration testing. No GitHub release has been created.
+The package metadata and public release are `0.2.0`.
