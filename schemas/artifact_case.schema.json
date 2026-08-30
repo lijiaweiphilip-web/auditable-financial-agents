@@ -31,18 +31,12 @@
         "note": {"type": "string"}
       },
       "oneOf": [
-        {
-          "required": ["generated_value", "source_value", "materiality_threshold"]
-        },
-        {
-          "not": {
-            "anyOf": [
-              {"required": ["generated_value"]},
-              {"required": ["source_value"]},
-              {"required": ["materiality_threshold"]}
-            ]
-          }
-        }
+        {"required": ["generated_value", "source_value", "materiality_threshold"]},
+        {"not": {"anyOf": [
+          {"required": ["generated_value"]},
+          {"required": ["source_value"]},
+          {"required": ["materiality_threshold"]}
+        ]}}
       ]
     },
     "digest": {

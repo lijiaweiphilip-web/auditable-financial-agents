@@ -64,9 +64,9 @@ python scripts/build_demo_snapshot.py
 - schema-v2 trace counts with nullable executed-action documentation coverage;
 - deterministic synthetic examples, tests, coverage, CI and hash manifest.
 
-The current branch is a `v0.2.0` behavior-change candidate, not a published
-release. Its input contract rejects partial numeric claims, non-boolean flags,
-and non-finite values; unknown formula checks are reviewable by default.
+Version `v0.2.0` is the current release. Its input contract rejects partial
+numeric claims, non-boolean flags, and non-finite values; unknown formula
+checks are reviewable by default.
 
 The action-trace code is a **prospective research extension**, not an HCOMP
 2026 accepted-paper result. See [`docs/PAPER_MAPPING.md`](docs/PAPER_MAPPING.md)

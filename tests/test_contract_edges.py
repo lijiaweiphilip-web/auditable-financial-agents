@@ -140,6 +140,15 @@ class ContractEdgeTests(unittest.TestCase):
                 public = json.loads((ROOT / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))
                 self.assertEqual(packaged, public)
 
+    def test_packaged_schemas_are_byte_identical_to_public_copies(self) -> None:
+        for name in ("artifact_case", "audit_result", "trace_assessment"):
+            with self.subTest(name=name):
+                packaged = resources.files("auditable_financial_agents.schemas").joinpath(
+                    f"{name}.schema.json"
+                ).read_bytes()
+                public = (ROOT / "schemas" / f"{name}.schema.json").read_bytes()
+                self.assertEqual(packaged, public)
+
     def test_cli_print_schema_uses_packaged_resource(self) -> None:
         self.assertEqual(main(["print-schema", "audit-result"]), 0)
 
